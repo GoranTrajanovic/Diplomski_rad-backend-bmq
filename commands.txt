@@ -1,0 +1,4 @@
+REDIS
+
+sudo service redis-server start
+redis-cli
