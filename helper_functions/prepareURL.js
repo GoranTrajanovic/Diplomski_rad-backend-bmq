@@ -13,8 +13,7 @@ module.exports = function (URL) {
         (today.getMonth() + 1) +
         "-" +
         today.getDate();
-    let time =
-        today.getHours() + "-" + today.getMinutes() + "-" + today.getSeconds();
+    let time = today.getHours() + "-" + today.getMinutes();
     let dateTimeFilename = date + "--" + time;
 
     let dir = `/${dateTimeFilename}--${rootURL}`;

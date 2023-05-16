@@ -8,6 +8,7 @@ const workerOptions = {
         host: "localhost",
         port: 6379,
     },
+    // concurrency: 3,
 };
 
 const workerHandler = async (job) => {
