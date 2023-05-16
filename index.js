@@ -4,21 +4,24 @@ const app = express();
 const PORT = 8888;
 app.use(express.json());
 
-const myQueue = new Queue("foo", {
+const myQueue = new Queue("recordScreenshots", {
     connection: {
         host: "localhost",
         port: 6379,
     },
 });
 
-async function addJobs() {
-    await myQueue.add("myJobName", { foo: "bar" });
-    await myQueue.add("myJobName", { qux: "baz" });
+async function addJobs(urlArray) {
+    console.log(urlArray);
+    urlArray.forEach(async (url) => {
+        await myQueue.add("myJobName", { url });
+    });
 }
 
-app.get("/haya", async (req, res) => {
-    await addJobs();
-    res.send(200);
+app.post("/take_screenshots", async (req, res) => {
+    // console.log("received", req.body.urlArray);
+    await addJobs(req.body.urlArray);
+    res.status(200);
 });
 
 app.listen(PORT, () =>
