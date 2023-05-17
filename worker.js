@@ -11,9 +11,12 @@ const workerOptions = {
     // concurrency: 3,
 };
 
+let GLOBAL_STEPS = 0;
+
 const workerHandler = async (job) => {
     console.log(job.data.url);
     const { dir, URLSubpath } = prepareURL(job.data.url);
+    GLOBAL_STEPS = 0;
 
     let timeAtStart = Date.now();
 
@@ -26,12 +29,41 @@ const workerHandler = async (job) => {
                 job.data.url,
                 URLSubpath,
                 "chromium",
-                "desktop"
+                "desktop",
+                job
             ),
-            takeScreenshot(dir, job.data.url, URLSubpath, "firefox", "desktop"),
-            takeScreenshot(dir, job.data.url, URLSubpath, "webkit", "desktop"),
-            takeScreenshot(dir, job.data.url, URLSubpath, "chromium", "mobile"),
-            takeScreenshot(dir, job.data.url, URLSubpath, "webkit", "mobile"),
+            takeScreenshot(
+                dir,
+                job.data.url,
+                URLSubpath,
+                "firefox",
+                "desktop",
+                job
+            ),
+            takeScreenshot(
+                dir,
+                job.data.url,
+                URLSubpath,
+                "webkit",
+                "desktop",
+                job
+            ),
+            takeScreenshot(
+                dir,
+                job.data.url,
+                URLSubpath,
+                "chromium",
+                "mobile",
+                job
+            ),
+            takeScreenshot(
+                dir,
+                job.data.url,
+                URLSubpath,
+                "webkit",
+                "mobile",
+                job
+            ),
         ]).then(() => {
             console.log(
                 `It took ${
@@ -49,7 +81,11 @@ const workerHandler = async (job) => {
 
 const worker = new Worker("recordScreenshots", workerHandler, workerOptions);
 
-async function takeScreenshot(dir, URL, URLSubpath, browser, device) {
+worker.on("progress", (job, progress) => {
+    console.log(progress);
+});
+
+async function takeScreenshot(dir, URL, URLSubpath, browser, device, job) {
     console.log(`Processing: ${URL} | ${browser} | ${device}`);
     let browserPW = await (browser === "chromium"
         ? chromium
@@ -70,4 +106,5 @@ async function takeScreenshot(dir, URL, URLSubpath, browser, device) {
         path: `app/screenshots/${dir}/${URLSubpath}_-_${browser}_-_${device}.png`,
         fullPage: true,
     });
+    await job.updateProgress(++GLOBAL_STEPS);
 }

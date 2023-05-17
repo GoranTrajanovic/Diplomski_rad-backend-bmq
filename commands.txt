@@ -2,3 +2,7 @@ REDIS
 
 sudo service redis-server start
 redis-cli
+
+
+FOR WORKER, CUSTOM PORT:
+nodemon --inspect=1111 worker
