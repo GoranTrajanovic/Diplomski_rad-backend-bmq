@@ -1,10 +1,11 @@
-const { Queue } = require("bullmq");
+const { Queue, QueueEvents } = require("bullmq");
 const express = require("express");
 const app = express();
 const http = require("http");
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const io = new Server(server);
+let SOCKET;
 const PORT = 8888;
 
 app.use(express.json());
@@ -14,6 +15,18 @@ const myQueue = new Queue("recordScreenshots", {
         host: "localhost",
         port: 6379,
     },
+});
+
+const queueEvents = new QueueEvents("recordScreenshots", {
+    connection: {
+        host: "localhost",
+        port: 6379,
+    },
+});
+
+queueEvents.on("progress", ({ jobId, data }) => {
+    console.log(data);
+    SOCKET.emit("progress", data);
 });
 
 async function addJobs(urlArray) {
@@ -31,6 +44,7 @@ app.post("/take_screenshots", async (req, res) => {
 
 io.on("connection", (socket) => {
     console.log("New User has connected!");
+    SOCKET = socket;
 });
 
 server.listen(PORT, () =>

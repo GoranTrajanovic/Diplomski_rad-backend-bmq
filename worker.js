@@ -106,5 +106,5 @@ async function takeScreenshot(dir, URL, URLSubpath, browser, device, job) {
         path: `app/screenshots/${dir}/${URLSubpath}_-_${browser}_-_${device}.png`,
         fullPage: true,
     });
-    await job.updateProgress(++GLOBAL_STEPS);
+    await job.updateProgress({ url: URL, currentStep: ++GLOBAL_STEPS });
 }
