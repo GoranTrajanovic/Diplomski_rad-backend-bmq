@@ -1,9 +1,9 @@
-const { Queue, QueueEvents } = require("bullmq");
-const express = require("express");
+import { Queue, QueueEvents } from "bullmq";
+import express from "express";
 const app = express();
-const http = require("http");
+import http from "http";
 const server = http.createServer(app);
-const { Server } = require("socket.io");
+import { Server } from "socket.io";
 const io = new Server(server);
 let SOCKET;
 const PORT = 8888;

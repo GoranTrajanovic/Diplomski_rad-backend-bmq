@@ -1,7 +1,9 @@
-const fs = require("fs");
-const { Worker } = require("bullmq");
-const { chromium, firefox, webkit, devices } = require("playwright");
-const prepareURL = require("./helper_functions/prepareURL");
+import fs from "fs";
+import { Worker } from "bullmq";
+import { chromium, firefox, webkit, devices } from "playwright";
+import prepareURL from "./helper_functions/prepareURL.js";
+import uploadToDB from "./helper_functions/uploadToDB.js";
+import clearScreenshotsWorkingDir from "./helper_functions/clearScreenshotsWorkingDir.js";
 
 const workerOptions = {
     connection: {
@@ -20,9 +22,10 @@ const workerHandler = async (job) => {
 
     let timeAtStart = Date.now();
 
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    // if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
     try {
+        clearScreenshotsWorkingDir(dir);
         Promise.all([
             takeScreenshot(
                 dir,
@@ -64,13 +67,17 @@ const workerHandler = async (job) => {
                 "mobile",
                 job
             ),
-        ]).then(() => {
-            console.log(
-                `It took ${
-                    (Date.now() - timeAtStart) / 1000
-                } seconds to complete ${URLSubpath}`
-            );
-        });
+        ])
+            .then(() => {
+                console.log(
+                    `It took ${
+                        (Date.now() - timeAtStart) / 1000
+                    } seconds to complete ${URLSubpath}`
+                );
+            })
+            .then(() => {
+                uploadToDB(dir, job.data.url);
+            });
 
         // uploadToBackend(dir, URLWithoutHttps);
     } catch (err) {
