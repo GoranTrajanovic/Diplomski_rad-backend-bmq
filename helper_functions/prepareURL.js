@@ -1,4 +1,4 @@
-module.exports = function (URL) {
+export default function prepareURL(URL) {
     const URLWithoutHttps = URL.substring(URL.indexOf("//") + 2);
     const rootURL = URLWithoutHttps.substring(0, URLWithoutHttps.indexOf("/"));
     let URLSubpath = URLWithoutHttps.substring(
@@ -16,7 +16,8 @@ module.exports = function (URL) {
     let time = today.getHours() + "-" + today.getMinutes();
     let dateTimeFilename = date + "--" + time;
 
-    let dir = `/${dateTimeFilename}--${rootURL}`;
+    // let dir = `/${dateTimeFilename}--${rootURL}`;
+    let dir = `${rootURL}/${dateTimeFilename}`;
 
     return { dir, URLSubpath };
-};
+}
