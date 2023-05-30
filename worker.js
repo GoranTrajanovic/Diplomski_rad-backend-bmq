@@ -35,7 +35,7 @@ const workerHandler = async (job) => {
                 "desktop",
                 job
             ),
-            takeScreenshot(
+            /* takeScreenshot(
                 dir,
                 job.data.url,
                 URLSubpath,
@@ -66,7 +66,7 @@ const workerHandler = async (job) => {
                 "webkit",
                 "mobile",
                 job
-            ),
+            ), */
         ])
             .then(() => {
                 console.log(
