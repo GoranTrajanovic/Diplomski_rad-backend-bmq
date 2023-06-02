@@ -2,11 +2,14 @@ import fs from "fs";
 import axios from "axios";
 import fetch, { blobFrom } from "node-fetch";
 
-export default async function (dir, URL) {
+export default async function (dir, URL, IDofExistingWebsiteRoot) {
     const metaObject = getNamesOfAllMatchingImages(dir, URL);
-
     if (isRootWebpage(URL)) uploadRootWebsiteToDB(metaObject);
-    // uploadWebpagesToDB(metaObject);
+    else
+        uploadWebpagesToDB(
+            metaObject,
+            IDofExistingWebsiteRoot || getNextWebsiteIDlocally(metaObject)
+        );
 }
 
 function isRootWebpage(URL) {
@@ -14,17 +17,14 @@ function isRootWebpage(URL) {
 }
 
 function getNamesOfAllMatchingImages(dir, URL) {
-    const parentDir = dir.slice(0, dir.indexOf("/"));
-    const fullPathParentDir = "app/screenshots/" + parentDir;
-    const parentDirFolders = fs.readdirSync(fullPathParentDir);
-    const pathToImagesFolder = `${fullPathParentDir}/${parentDirFolders[0]}`;
+    // const parentDir = dir.slice(0, dir.indexOf("/"));
+    const pathToImagesFolder = `app/projects/${dir}/screenshots`;
     const plainURL = URL.slice(
         URL.indexOf("//") + 2,
         isRootWebpage(URL) ? URL.length - 1 : URL.length
     );
-    let parentDirFiles = fs.readdirSync(
-        `${fullPathParentDir}/${parentDirFolders[0]}`
-    );
+    const plainRootURL = plainURL.slice(0, plainURL.indexOf("/"));
+    let parentDirFiles = fs.readdirSync(pathToImagesFolder);
     parentDirFiles = parentDirFiles.filter((imgName) => {
         return (
             imgName.slice(0, imgName.indexOf("_")) ===
@@ -33,7 +33,16 @@ function getNamesOfAllMatchingImages(dir, URL) {
         );
     });
 
-    return { plainURL, parentDirFiles, pathToImagesFolder };
+    return { plainURL, parentDirFiles, pathToImagesFolder, plainRootURL };
+}
+
+function getNextWebsiteIDlocally({ plainRootURL }) {
+    const filePath = `app/projects/${plainRootURL}/Website_NextID.txt`;
+    let nextWebsiteID = fs.readFileSync(filePath, {
+        encoding: "utf8",
+    });
+
+    return nextWebsiteID;
 }
 
 async function uploadRootWebsiteToDB({
@@ -42,6 +51,8 @@ async function uploadRootWebsiteToDB({
     pathToImagesFolder,
 }) {
     const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
+
+    let refId;
 
     const data = {
         Root_URL: plainURL,
@@ -54,7 +65,7 @@ async function uploadRootWebsiteToDB({
             data,
         })
         .then(async (res) => {
-            const refId = res.data.data.id;
+            refId = res.data.data.id;
 
             const file = await blobFrom(coverImageURI, "image/png");
 
@@ -75,13 +86,14 @@ async function uploadRootWebsiteToDB({
                 JSON.stringify(e).slice(0, 250)
             );
         });
+
+    return refId;
 }
 
-async function uploadWebpagesToDB({
-    plainURL,
-    parentDirFiles,
-    pathToImagesFolder,
-}) {
+async function uploadWebpagesToDB(
+    { plainURL, parentDirFiles, pathToImagesFolder },
+    WebsiteIDforReference
+) {
     const tempObjForDB = {};
     const filesObj = parentDirFiles.map((imgName) => {
         return {
@@ -103,6 +115,7 @@ async function uploadWebpagesToDB({
 
     const data = {
         URL: plainURL,
+        website: WebsiteIDforReference,
     };
 
     const res = await axios

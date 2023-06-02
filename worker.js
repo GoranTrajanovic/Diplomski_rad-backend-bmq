@@ -3,6 +3,7 @@ import { Worker } from "bullmq";
 import { chromium, firefox, webkit, devices } from "playwright";
 import prepareURL from "./helper_functions/prepareURL.js";
 import uploadToDB from "./helper_functions/uploadToDB.js";
+import printShort from "./helper_functions/printShort.js";
 import clearScreenshotsWorkingDir from "./helper_functions/clearScreenshotsWorkingDir.js";
 
 const workerOptions = {
@@ -16,74 +17,61 @@ const workerOptions = {
 let GLOBAL_STEPS = 0;
 
 const workerHandler = async (job) => {
-    console.log(job.data.url);
     const { dir, URLSubpath } = prepareURL(job.data.url);
+    const IDofExistingWebsiteRoot = job.data.IDofExistingWebsiteRoot;
+
+    console.log("Worker starting with: ", job.data.url);
+
     GLOBAL_STEPS = 0;
+
+    let websiteIDreturn;
 
     let timeAtStart = Date.now();
 
-    // if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    clearScreenshotsWorkingDir(dir);
+    Promise.all([
+        takeScreenshot(
+            dir,
+            job.data.url,
+            URLSubpath,
+            "chromium",
+            "desktop",
+            job
+        ),
+        takeScreenshot(
+            dir,
+            job.data.url,
+            URLSubpath,
+            "firefox",
+            "desktop",
+            job
+        ),
+        takeScreenshot(dir, job.data.url, URLSubpath, "webkit", "desktop", job),
+        takeScreenshot(
+            dir,
+            job.data.url,
+            URLSubpath,
+            "chromium",
+            "mobile",
+            job
+        ),
+        takeScreenshot(dir, job.data.url, URLSubpath, "webkit", "mobile", job),
+    ])
+        .then(async () => {
+            uploadToDB(dir, job.data.url, IDofExistingWebsiteRoot);
+        })
+        .then(() => {
+            console.log(
+                `It took ${
+                    (Date.now() - timeAtStart) / 1000
+                } seconds to complete ${URLSubpath}`
+            );
+        })
+        .catch((e) => {
+            printShort(e);
+        });
 
-    try {
-        clearScreenshotsWorkingDir(dir);
-        Promise.all([
-            takeScreenshot(
-                dir,
-                job.data.url,
-                URLSubpath,
-                "chromium",
-                "desktop",
-                job
-            ),
-            /* takeScreenshot(
-                dir,
-                job.data.url,
-                URLSubpath,
-                "firefox",
-                "desktop",
-                job
-            ),
-            takeScreenshot(
-                dir,
-                job.data.url,
-                URLSubpath,
-                "webkit",
-                "desktop",
-                job
-            ),
-            takeScreenshot(
-                dir,
-                job.data.url,
-                URLSubpath,
-                "chromium",
-                "mobile",
-                job
-            ),
-            takeScreenshot(
-                dir,
-                job.data.url,
-                URLSubpath,
-                "webkit",
-                "mobile",
-                job
-            ), */
-        ])
-            .then(() => {
-                console.log(
-                    `It took ${
-                        (Date.now() - timeAtStart) / 1000
-                    } seconds to complete ${URLSubpath}`
-                );
-            })
-            .then(() => {
-                uploadToDB(dir, job.data.url);
-            });
-
-        // uploadToBackend(dir, URLWithoutHttps);
-    } catch (err) {
-        console.log(err);
-        res.status(404).json({ errorMsg: "Error occured in Express API." });
-    }
+    return websiteIDreturn;
 };
 
 const worker = new Worker("recordScreenshots", workerHandler, workerOptions);
@@ -110,7 +98,7 @@ async function takeScreenshot(dir, URL, URLSubpath, browser, device, job) {
     let page = await context.newPage();
     await page.goto(URL);
     await page.screenshot({
-        path: `app/screenshots/${dir}/${URLSubpath}_-_${browser}_-_${device}.png`,
+        path: `app/projects/${dir}/screenshots/${URLSubpath}_-_${browser}_-_${device}.png`,
         fullPage: true,
     });
     await job.updateProgress({ url: URL, currentStep: ++GLOBAL_STEPS });

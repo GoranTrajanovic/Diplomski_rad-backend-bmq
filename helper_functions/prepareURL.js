@@ -6,7 +6,7 @@ export default function prepareURL(URL) {
     );
     URLSubpath = URLSubpath === "" ? "root" : URLSubpath;
 
-    let today = new Date();
+    /* let today = new Date();
     let date =
         today.getFullYear() +
         "-" +
@@ -14,10 +14,11 @@ export default function prepareURL(URL) {
         "-" +
         today.getDate();
     let time = today.getHours() + "-" + today.getMinutes();
-    let dateTimeFilename = date + "--" + time;
+    let dateTimeFilename = date + "--" + time; */
 
     // let dir = `/${dateTimeFilename}--${rootURL}`;
-    let dir = `${rootURL}/${dateTimeFilename}`;
+    // let dir = `${rootURL}/${dateTimeFilename}`;
+    let dir = `${rootURL}`;
 
     return { dir, URLSubpath };
 }
