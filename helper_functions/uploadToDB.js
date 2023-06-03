@@ -2,13 +2,13 @@ import fs from "fs";
 import axios from "axios";
 import fetch, { blobFrom } from "node-fetch";
 
-export default async function (dir, URL, IDofExistingWebsiteRoot) {
-    const metaObject = getNamesOfAllMatchingImages(dir, URL);
+export default async function (plainRootURL, URL, IDofExistingWebsiteRoot) {
+    const metaObject = getNamesOfAllMatchingImages(plainRootURL, URL);
     if (isRootWebpage(URL)) uploadRootWebsiteToDB(metaObject);
     else
         uploadWebpagesToDB(
             metaObject,
-            IDofExistingWebsiteRoot || getNextWebsiteIDlocally(metaObject)
+            IDofExistingWebsiteRoot || getNextWebsiteIDlocally()
         );
 }
 
@@ -16,14 +16,14 @@ function isRootWebpage(URL) {
     return URL.slice(URL.lastIndexOf("/") + 1, URL.length) === "";
 }
 
-function getNamesOfAllMatchingImages(dir, URL) {
+function getNamesOfAllMatchingImages(plainRootURL, URL) {
     // const parentDir = dir.slice(0, dir.indexOf("/"));
-    const pathToImagesFolder = `app/projects/${dir}/screenshots`;
+    const pathToImagesFolder = `app/projects/${plainRootURL}/screenshots`;
     const plainURL = URL.slice(
         URL.indexOf("//") + 2,
         isRootWebpage(URL) ? URL.length - 1 : URL.length
     );
-    const plainRootURL = plainURL.slice(0, plainURL.indexOf("/"));
+    // const plainRootURL = plainURL.slice(0, plainURL.indexOf("/"));
     let parentDirFiles = fs.readdirSync(pathToImagesFolder);
     parentDirFiles = parentDirFiles.filter((imgName) => {
         return (
@@ -33,11 +33,11 @@ function getNamesOfAllMatchingImages(dir, URL) {
         );
     });
 
-    return { plainURL, parentDirFiles, pathToImagesFolder, plainRootURL };
+    return { plainURL, parentDirFiles, pathToImagesFolder };
 }
 
-function getNextWebsiteIDlocally({ plainRootURL }) {
-    const filePath = `app/projects/${plainRootURL}/Website_NextID.txt`;
+function getNextWebsiteIDlocally() {
+    const filePath = `app/projects/Website_CurrentID.txt`;
     let nextWebsiteID = fs.readFileSync(filePath, {
         encoding: "utf8",
     });
@@ -94,25 +94,6 @@ async function uploadWebpagesToDB(
     { plainURL, parentDirFiles, pathToImagesFolder },
     WebsiteIDforReference
 ) {
-    const tempObjForDB = {};
-    const filesObj = parentDirFiles.map((imgName) => {
-        return {
-            imgName,
-            imgBlob: blobFrom(`${pathToImagesFolder}/${imgName}`, "image/png"),
-        };
-    });
-
-    console.dir(filesObj);
-
-    /*
-
-
-    WE NEED TO GET BLOB NAME FOR UPLOADING IT TO DB 
-
-
-
-    */
-
     const data = {
         URL: plainURL,
         website: WebsiteIDforReference,
@@ -125,21 +106,21 @@ async function uploadWebpagesToDB(
         .then(async (res) => {
             const refId = res.data.data.id;
 
-            filesObj.map(async ({ imgName, imgBlob }) => {
+            await parentDirFiles.map(async (imgName) => {
                 console.log("imgName", imgName);
-                /* const form = new FormData();
-                form.append(
-                    "files",
-                    imgBlob,
-                    "reviews_-_chromium_-_desktop.png"
+                const form = new FormData();
+                const imgBlob = await blobFrom(
+                    `${pathToImagesFolder}/${imgName}`,
+                    "image/png"
                 );
+                form.append("files", imgBlob, imgName);
                 form.append("refId", refId);
                 form.append("ref", "api::webpage.webpage");
                 form.append("field", "Screenshots");
                 res = await fetch("http://127.0.0.1:1337/api/upload", {
                     method: "post",
                     body: form,
-                }); */
+                });
             });
         })
         .catch((e) => {

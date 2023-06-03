@@ -1,6 +1,9 @@
 export default function prepareURL(URL) {
     const URLWithoutHttps = URL.substring(URL.indexOf("//") + 2);
-    const rootURL = URLWithoutHttps.substring(0, URLWithoutHttps.indexOf("/"));
+    const plainRootURL = URLWithoutHttps.substring(
+        0,
+        URLWithoutHttps.indexOf("/")
+    );
     let URLSubpath = URLWithoutHttps.substring(
         URLWithoutHttps.indexOf("/") + 1
     );
@@ -16,9 +19,8 @@ export default function prepareURL(URL) {
     let time = today.getHours() + "-" + today.getMinutes();
     let dateTimeFilename = date + "--" + time; */
 
-    // let dir = `/${dateTimeFilename}--${rootURL}`;
-    // let dir = `${rootURL}/${dateTimeFilename}`;
-    let dir = `${rootURL}`;
+    // let dir = `/${dateTimeFilename}--${plainRootURL}`;
+    // let dir = `${plainRootURL}/${dateTimeFilename}`;
 
-    return { dir, URLSubpath };
+    return { plainRootURL, URLSubpath };
 }

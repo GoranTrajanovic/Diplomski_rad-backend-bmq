@@ -1,4 +1,4 @@
-import { Job, Queue, QueueEvents } from "bullmq";
+import { Job, Queue, QueueEvents, FlowProducer } from "bullmq";
 import express from "express";
 import axios from "axios";
 const app = express();
@@ -28,44 +28,15 @@ const queueEvents = new QueueEvents("recordScreenshots", {
 });
 
 queueEvents.on("progress", ({ jobId, data }) => {
-    console.log(data);
     SOCKET.emit("progress", data);
 });
 
-async function addJobs(urlArray, ID, delay) {
+async function addJobs(URLarrayWithoutRoot, refRootWebsiteID) {
     // console.log("urlArray in addJobs", urlArray);
-    urlArray.forEach(async (url) => {
-        await myQueue.add("myJobName", { url, ID }, { delay });
+    await myQueue.add("process-all-webpages", {
+        URLarrayWithoutRoot,
+        refRootWebsiteID,
     });
-
-    /* const rootURLorFalse = isRootIncludedInArray(urlArray);
-
-    try {
-        const rootIDorFalse = await rootExistsInDBIfYesGetID(urlArray[0]);
-
-        if (rootURLorFalse) {
-            console.log("Root is there ", rootURLorFalse);
-            await myQueue.add("myJobName", { url: rootURLorFalse });
-
-            // delay needed here
-            const tempArr = urlArray.filter((URL) => URL !== rootURLorFalse);
-            tempArr.forEach(async (url) => {
-                await myQueue.add("myJobName", { url }, { delay: 30000 });
-            });
-        } else if (rootIDorFalse) {
-            urlArray.forEach(async (url) => {
-                await myQueue.add(
-                    "myJobName",
-                    { url, rootIDorFalse },
-                    { delay: 30000 }
-                );
-            });
-        } else {
-            SOCKET.emit("no_root", "no_root");
-        }
-    } catch {
-        (e) => printShort(e);
-    } */
 }
 
 app.post("/take_screenshots", async (req, res) => {
@@ -79,19 +50,40 @@ app.post("/take_screenshots", async (req, res) => {
 
     try {
         const rootIDorFalse = await rootExistsInDBIfYesGetID(URLsample);
+        const URLarrayWithoutRoot = URLarray.filter(
+            (URL) => URL !== rootURLorFalse
+        );
 
-        if (rootURLorFalse) {
-            await addJobs([rootURLorFalse]);
-
-            await addJobs(
-                URLarray.filter((URL) => URL !== rootURLorFalse),
-                null,
-                DELAY
-            );
-            incrementLocalIDcounter(URLsample);
+        if (rootIDorFalse) {
+            await new FlowProducer().add({
+                name: "process-all-webpages",
+                queueName: "recordScreenshots",
+                data: { URLarrayWithoutRoot, refRootWebsiteID: rootIDorFalse },
+                children: [
+                    {
+                        name: "update-root-website",
+                        queueName: "recordScreenshots",
+                        data: {
+                            url: rootURLorFalse,
+                            refRootWebsiteID: rootIDorFalse,
+                        },
+                    },
+                ],
+            });
             res.status(200);
-        } else if (rootIDorFalse) {
-            await addJobs(URLarray, rootIDorFalse, DELAY);
+        } else if (rootURLorFalse) {
+            await new FlowProducer().add({
+                name: "process-all-webpages",
+                queueName: "recordScreenshots",
+                data: { URLarrayWithoutRoot },
+                children: [
+                    {
+                        name: "process-root-website",
+                        queueName: "recordScreenshots",
+                        data: { url: rootURLorFalse },
+                    },
+                ],
+            });
             res.status(200);
         } else {
             SOCKET.emit("no_root", "no_root");
@@ -163,14 +155,4 @@ async function rootExistsInDBIfYesGetID(URLsample) {
 function getRootURL(URL) {
     // NOTICE: this logic takes care only of var:URL such as: https://someurl.com/sub and not more deep subdomains
     return URL.slice(URL.indexOf("//") + 2, URL.lastIndexOf("/"));
-}
-
-function incrementLocalIDcounter(URLsample) {
-    const rootURL = getRootURL(URLsample);
-    const filePath = `app/projects/${rootURL}/Website_NextID.txt`;
-    let nextWebsiteID = fs.readFileSync(filePath, {
-        encoding: "utf8",
-    });
-
-    fs.writeFileSync(filePath, (parseInt(nextWebsiteID) + 1).toString());
 }
