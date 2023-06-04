@@ -2,14 +2,26 @@ import fs from "fs";
 import axios from "axios";
 import fetch, { blobFrom } from "node-fetch";
 
-export default async function (plainRootURL, URL, IDofExistingWebsiteRoot) {
+export default async function (plainRootURL, URL, refRootWebsiteID, jobName) {
     const metaObject = getNamesOfAllMatchingImages(plainRootURL, URL);
-    if (isRootWebpage(URL)) uploadRootWebsiteToDB(metaObject);
-    else
-        uploadWebpagesToDB(
-            metaObject,
-            IDofExistingWebsiteRoot || getNextWebsiteIDlocally()
-        );
+
+    switch (jobName) {
+        case "process-root-website":
+            // if (isRootWebpage(URL)) uploadRootWebsiteToDB(metaObject);
+            uploadRootWebsiteToDB(metaObject);
+            break;
+        case "process-all-webpages":
+            uploadWebpagesToDB(
+                metaObject,
+                refRootWebsiteID || getCurrentWebsiteIDlocally()
+            );
+            break;
+        case "update-root-website":
+            updateRootWebsiteInDB(metaObject, refRootWebsiteID);
+            break;
+        default:
+            console.log("Error. Unkown job name.");
+    }
 }
 
 function isRootWebpage(URL) {
@@ -36,13 +48,13 @@ function getNamesOfAllMatchingImages(plainRootURL, URL) {
     return { plainURL, parentDirFiles, pathToImagesFolder };
 }
 
-function getNextWebsiteIDlocally() {
+function getCurrentWebsiteIDlocally() {
     const filePath = `app/projects/Website_CurrentID.txt`;
-    let nextWebsiteID = fs.readFileSync(filePath, {
+    let currentWebsiteID = fs.readFileSync(filePath, {
         encoding: "utf8",
     });
 
-    return nextWebsiteID;
+    return currentWebsiteID;
 }
 
 async function uploadRootWebsiteToDB({
@@ -50,7 +62,7 @@ async function uploadRootWebsiteToDB({
     parentDirFiles,
     pathToImagesFolder,
 }) {
-    const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
 
     let refId;
 
@@ -60,7 +72,7 @@ async function uploadRootWebsiteToDB({
         slug: plainURL.replaceAll(".", "-"),
     };
 
-    const res = await axios
+    let res = await axios
         .post("http://127.0.0.1:1337/api/websites", {
             data,
         })
@@ -70,7 +82,7 @@ async function uploadRootWebsiteToDB({
             const file = await blobFrom(coverImageURI, "image/png");
 
             const form = new FormData();
-            form.append("files", file, "reviews_-_chromium_-_desktop.png");
+            form.append("files", file, "root-_chromium_-_desktop.png");
             form.append("refId", refId);
             form.append("ref", "api::website.website");
             form.append("field", "Frontpage_Screenshot");
@@ -78,6 +90,26 @@ async function uploadRootWebsiteToDB({
             res = await fetch("http://127.0.0.1:1337/api/upload", {
                 method: "post",
                 body: form,
+            });
+
+            return refId;
+        })
+        .then(async (refId) => {
+            await parentDirFiles.map(async (imgName) => {
+                console.log("imgName", imgName);
+                const form = new FormData();
+                const imgBlob = await blobFrom(
+                    `${pathToImagesFolder}/${imgName}`,
+                    "image/png"
+                );
+                form.append("files", imgBlob, imgName);
+                form.append("refId", refId);
+                form.append("ref", "api::website.website");
+                form.append("field", "Screenshots");
+                res = await fetch("http://127.0.0.1:1337/api/upload", {
+                    method: "post",
+                    body: form,
+                });
             });
         })
         .catch((e) => {
@@ -126,6 +158,46 @@ async function uploadWebpagesToDB(
         .catch((e) => {
             console.log(
                 "Error in uploading webpages to DB:",
+                JSON.stringify(e).slice(0, 250)
+            );
+        });
+}
+
+async function updateRootWebsiteInDB(
+    { plainURL, parentDirFiles, pathToImagesFolder },
+    refRootWebsiteID
+) {
+    const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
+
+    const data = {
+        Web_Vitals_Score: "Hard-coded-changed",
+    };
+
+    const res = await axios
+        .put(`http://127.0.0.1:1337/api/websites/${refRootWebsiteID}`, {
+            data,
+        })
+        .then(async (res) => {
+            const file = await blobFrom(coverImageURI, "image/png");
+
+            const form = new FormData();
+            form.append(
+                "files",
+                file,
+                "reviews_-_chromium_-_desktop_-_changed.png"
+            );
+            form.append("refId", refRootWebsiteID);
+            form.append("ref", "api::website.website");
+            form.append("field", "Frontpage_Screenshot");
+
+            res = await fetch("http://127.0.0.1:1337/api/upload", {
+                method: "post",
+                body: form,
+            });
+        })
+        .catch((e) => {
+            console.log(
+                "Error in uploading website to DB:",
                 JSON.stringify(e).slice(0, 250)
             );
         });

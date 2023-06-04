@@ -6,6 +6,7 @@ import http from "http";
 const server = http.createServer(app);
 import { Server } from "socket.io";
 import printShort from "./helper_functions/printShort.js";
+import getRootURL from "./helper_functions/getRootURL.js";
 import { FragmentsOnCompositeTypesRule } from "graphql";
 const io = new Server(server);
 let SOCKET;
@@ -113,7 +114,6 @@ function isRootIncludedInArray(URLarray) {
 }
 
 async function rootExistsInDBIfYesGetID(URLsample) {
-    let APIcallResult;
     try {
         let res = await axios.get("http://127.0.0.1:1337/api/websites");
         const websitesFetched = res.data.data;
@@ -151,8 +151,3 @@ async function rootExistsInDBIfYesGetID(URLsample) {
 //     /* const res = axios.get(process.env.STRAPI_URL_WEBSITES);
 //     console.log(res); */
 // }
-
-function getRootURL(URL) {
-    // NOTICE: this logic takes care only of var:URL such as: https://someurl.com/sub and not more deep subdomains
-    return URL.slice(URL.indexOf("//") + 2, URL.lastIndexOf("/"));
-}

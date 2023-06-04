@@ -4,6 +4,7 @@ import { chromium, firefox, webkit, devices } from "playwright";
 import prepareURL from "./helper_functions/prepareURL.js";
 import uploadToDB from "./helper_functions/uploadToDB.js";
 import printShort from "./helper_functions/printShort.js";
+import getRootURL from "./helper_functions/getRootURL.js";
 import clearScreenshotsWorkingDir from "./helper_functions/clearScreenshotsWorkingDir.js";
 
 const workerOptions = {
@@ -20,18 +21,21 @@ const workerHandler = async (job) => {
     const devicesAndBrowsers = [
         { browser: "chromium", device: "desktop" },
         { browser: "firefox", device: "desktop" },
-        { browser: "webkit", device: "desktop" },
+        /*{ browser: "webkit", device: "desktop" },
         { browser: "chromium", device: "mobile" },
-        { browser: "webkit", device: "mobile" },
+        { browser: "webkit", device: "mobile" }, */
     ];
 
     GLOBAL_STEPS = 0;
 
     let timeAtStart = Date.now();
+    let URLmetaObject;
+
+    job.data.url ? clearScreenshotsWorkingDir(getRootURL(job.data.url)) : null;
 
     switch (job.name) {
         case "process-root-website":
-            const URLmetaObject = prepareURL(job.data.url);
+            URLmetaObject = prepareURL(job.data.url);
             await incrementLocalIDcounter();
             await processURL(
                 devicesAndBrowsers,
@@ -67,6 +71,23 @@ const workerHandler = async (job) => {
             });
             break;
         case "update-root-website":
+            URLmetaObject = prepareURL(job.data.url);
+            await processURL(
+                devicesAndBrowsers,
+                URLmetaObject,
+                job.data.url,
+                job
+            )
+                .then(() => {
+                    console.log(
+                        `It took ${
+                            (Date.now() - timeAtStart) / 1000
+                        } seconds to complete ${URLmetaObject.URLSubpath}`
+                    );
+                })
+                .catch((e) => {
+                    printShort(e);
+                });
             break;
         default:
             console.log("Error. Unkown job name.");
@@ -92,7 +113,12 @@ async function processURL(devicesAndBrowsers, URLmetaObject, url, job) {
             );
         })
     ).then(async () => {
-        uploadToDB(URLmetaObject.plainRootURL, url, job.data.rootWebsiteID);
+        uploadToDB(
+            URLmetaObject.plainRootURL,
+            url,
+            job.data.refRootWebsiteID,
+            job.name
+        );
     });
 }
 
