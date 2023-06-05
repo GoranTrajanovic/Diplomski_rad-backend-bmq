@@ -2,22 +2,25 @@ import fs from "fs";
 import axios from "axios";
 import fetch, { blobFrom } from "node-fetch";
 
-export default async function (plainRootURL, URL, refRootWebsiteID, jobName) {
+export default async function (plainRootURL, URL, refID, jobName) {
     const metaObject = getNamesOfAllMatchingImages(plainRootURL, URL);
 
     switch (jobName) {
-        case "process-root-website":
+        case "upload--process-root-website":
             // if (isRootWebpage(URL)) uploadRootWebsiteToDB(metaObject);
             uploadRootWebsiteToDB(metaObject);
             break;
-        case "process-all-webpages":
+        case "update--process-root-website":
+            updateRootWebsiteInDB(metaObject, refID);
+            break;
+        case "upload--process-webpages":
             uploadWebpagesToDB(
                 metaObject,
-                refRootWebsiteID || getCurrentWebsiteIDlocally()
+                refID || getCurrentWebsiteIDlocally()
             );
             break;
-        case "update-root-website":
-            updateRootWebsiteInDB(metaObject, refRootWebsiteID);
+        case "update--process-webpages":
+            updateWebpagesInDB(metaObject, refID);
             break;
         default:
             console.log("Error. Unkown job name.");
@@ -64,7 +67,7 @@ async function uploadRootWebsiteToDB({
 }) {
     const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
 
-    let refId;
+    let refID;
 
     const data = {
         Root_URL: plainURL,
@@ -77,13 +80,13 @@ async function uploadRootWebsiteToDB({
             data,
         })
         .then(async (res) => {
-            refId = res.data.data.id;
+            refID = res.data.data.id;
 
             const file = await blobFrom(coverImageURI, "image/png");
 
             const form = new FormData();
             form.append("files", file, "root-_chromium_-_desktop.png");
-            form.append("refId", refId);
+            form.append("refId", refID);
             form.append("ref", "api::website.website");
             form.append("field", "Frontpage_Screenshot");
 
@@ -92,9 +95,9 @@ async function uploadRootWebsiteToDB({
                 body: form,
             });
 
-            return refId;
+            return refID;
         })
-        .then(async (refId) => {
+        .then(async (refID) => {
             await parentDirFiles.map(async (imgName) => {
                 console.log("imgName", imgName);
                 const form = new FormData();
@@ -103,7 +106,7 @@ async function uploadRootWebsiteToDB({
                     "image/png"
                 );
                 form.append("files", imgBlob, imgName);
-                form.append("refId", refId);
+                form.append("refId", refID);
                 form.append("ref", "api::website.website");
                 form.append("field", "Screenshots");
                 res = await fetch("http://127.0.0.1:1337/api/upload", {
@@ -118,8 +121,65 @@ async function uploadRootWebsiteToDB({
                 JSON.stringify(e).slice(0, 250)
             );
         });
+}
 
-    return refId;
+async function updateRootWebsiteInDB(
+    { parentDirFiles, pathToImagesFolder },
+    refID
+) {
+    const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
+
+    const data = {
+        Web_Vitals_Score: "Hard-coded-changed",
+        Screenshots: null, // clearing all old Screenshots
+    };
+
+    let res = await axios
+        .put(`http://127.0.0.1:1337/api/websites/${refID}`, {
+            data,
+        })
+        .then(async (res) => {
+            const file = await blobFrom(coverImageURI, "image/png");
+
+            const form = new FormData();
+            form.append(
+                "files",
+                file,
+                "reviews_-_chromium_-_desktop_-_changed.png"
+            );
+            form.append("refId", refID);
+            form.append("ref", "api::website.website");
+            form.append("field", "Frontpage_Screenshot");
+
+            res = await fetch("http://127.0.0.1:1337/api/upload", {
+                method: "post",
+                body: form,
+            });
+        })
+        .then(async () => {
+            await parentDirFiles.map(async (imgName) => {
+                console.log("imgName", imgName);
+                const form = new FormData();
+                const imgBlob = await blobFrom(
+                    `${pathToImagesFolder}/${imgName}`,
+                    "image/png"
+                );
+                form.append("files", imgBlob, imgName);
+                form.append("refId", refID);
+                form.append("ref", "api::website.website");
+                form.append("field", "Screenshots");
+                res = await fetch("http://127.0.0.1:1337/api/upload", {
+                    method: "post",
+                    body: form,
+                });
+            });
+        })
+        .catch((e) => {
+            console.log(
+                "Error in uploading website to DB:",
+                JSON.stringify(e).slice(0, 250)
+            );
+        });
 }
 
 async function uploadWebpagesToDB(
@@ -136,7 +196,7 @@ async function uploadWebpagesToDB(
             data,
         })
         .then(async (res) => {
-            const refId = res.data.data.id;
+            const refID = res.data.data.id;
 
             await parentDirFiles.map(async (imgName) => {
                 console.log("imgName", imgName);
@@ -146,7 +206,7 @@ async function uploadWebpagesToDB(
                     "image/png"
                 );
                 form.append("files", imgBlob, imgName);
-                form.append("refId", refId);
+                form.append("refId", refID);
                 form.append("ref", "api::webpage.webpage");
                 form.append("field", "Screenshots");
                 res = await fetch("http://127.0.0.1:1337/api/upload", {
@@ -163,36 +223,34 @@ async function uploadWebpagesToDB(
         });
 }
 
-async function updateRootWebsiteInDB(
-    { plainURL, parentDirFiles, pathToImagesFolder },
-    refRootWebsiteID
+async function updateWebpagesInDB(
+    { parentDirFiles, pathToImagesFolder },
+    refID
 ) {
-    const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
-
     const data = {
-        Web_Vitals_Score: "Hard-coded-changed",
+        Screenshots: null, // clearing all old Screenshots
     };
 
-    const res = await axios
-        .put(`http://127.0.0.1:1337/api/websites/${refRootWebsiteID}`, {
+    let res = await axios
+        .put(`http://127.0.0.1:1337/api/webpages/${refID}`, {
             data,
         })
-        .then(async (res) => {
-            const file = await blobFrom(coverImageURI, "image/png");
-
-            const form = new FormData();
-            form.append(
-                "files",
-                file,
-                "reviews_-_chromium_-_desktop_-_changed.png"
-            );
-            form.append("refId", refRootWebsiteID);
-            form.append("ref", "api::website.website");
-            form.append("field", "Frontpage_Screenshot");
-
-            res = await fetch("http://127.0.0.1:1337/api/upload", {
-                method: "post",
-                body: form,
+        .then(async () => {
+            await parentDirFiles.map(async (imgName) => {
+                console.log("imgName", imgName);
+                const form = new FormData();
+                const imgBlob = await blobFrom(
+                    `${pathToImagesFolder}/${imgName}`,
+                    "image/png"
+                );
+                form.append("files", imgBlob, imgName);
+                form.append("refId", refID);
+                form.append("ref", "api::webpage.webpage");
+                form.append("field", "Screenshots");
+                res = await fetch("http://127.0.0.1:1337/api/upload", {
+                    method: "post",
+                    body: form,
+                });
             });
         })
         .catch((e) => {

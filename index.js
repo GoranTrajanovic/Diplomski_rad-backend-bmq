@@ -32,21 +32,19 @@ queueEvents.on("progress", ({ jobId, data }) => {
     SOCKET.emit("progress", data);
 });
 
-async function addJobs(URLarrayWithoutRoot, refRootWebsiteID) {
+/* async function addJobs(URLarrayWithoutRoot, refRootWebsiteID) {
     // console.log("urlArray in addJobs", urlArray);
     await myQueue.add("process-all-webpages", {
         URLarrayWithoutRoot,
         refRootWebsiteID,
     });
-}
+} */
 
 app.post("/take_screenshots", async (req, res) => {
     // console.log("received", req.body.urlArray);
 
     const URLarray = req.body.urlArray;
     const rootURLorFalse = isRootIncludedInArray(URLarray);
-    const DELAY_SECONDS = 30;
-    const DELAY = 1000 * DELAY_SECONDS;
     const URLsample = URLarray[0];
 
     try {
@@ -54,34 +52,66 @@ app.post("/take_screenshots", async (req, res) => {
         const URLarrayWithoutRoot = URLarray.filter(
             (URL) => URL !== rootURLorFalse
         );
+        const webpagesURLsSeparated = await separateWebpagesIfExistInDB(
+            URLarrayWithoutRoot
+        );
+
+        console.log(webpagesURLsSeparated);
 
         if (rootIDorFalse) {
             await new FlowProducer().add({
-                name: "process-all-webpages",
+                name: "update--process-webpages",
                 queueName: "recordScreenshots",
-                data: { URLarrayWithoutRoot, refRootWebsiteID: rootIDorFalse },
+                data: {
+                    URLarray:
+                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
+                },
                 children: [
                     {
-                        name: "update-root-website",
+                        name: "upload--process-webpages",
                         queueName: "recordScreenshots",
                         data: {
-                            url: rootURLorFalse,
+                            URLarray:
+                                webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
                             refRootWebsiteID: rootIDorFalse,
                         },
+                        children: [
+                            {
+                                name: "update--process-root-website",
+                                queueName: "recordScreenshots",
+                                data: {
+                                    url: rootURLorFalse,
+                                    refRootWebsiteID: rootIDorFalse,
+                                },
+                            },
+                        ],
                     },
                 ],
             });
             res.status(200);
         } else if (rootURLorFalse) {
             await new FlowProducer().add({
-                name: "process-all-webpages",
+                name: "update--process-webpages",
                 queueName: "recordScreenshots",
-                data: { URLarrayWithoutRoot },
+                data: {
+                    URLarray:
+                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
+                },
                 children: [
                     {
-                        name: "process-root-website",
+                        name: "upload--process-webpages",
                         queueName: "recordScreenshots",
-                        data: { url: rootURLorFalse },
+                        data: {
+                            URLarray:
+                                webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
+                        },
+                        children: [
+                            {
+                                name: "upload--process-root-website",
+                                queueName: "recordScreenshots",
+                                data: { url: rootURLorFalse },
+                            },
+                        ],
                     },
                 ],
             });
@@ -130,6 +160,38 @@ async function rootExistsInDBIfYesGetID(URLsample) {
 
     /* const res = axios.get(process.env.STRAPI_URL_WEBSITES);
     console.log(res); */
+}
+
+async function separateWebpagesIfExistInDB(URLarray) {
+    let URLsAndRefsForWebpagesToUpdate = [];
+    let URLsAndRefsForWebpagesToUpload = [];
+    await axios
+        .get("http://127.0.0.1:1337/api/webpages")
+        .then(async (res) => {
+            const webpagesFetchedResponse = await res.data.data;
+            if (webpagesFetchedResponse.length !== 0) {
+                console.log("Something is still there");
+                const webpagesFetched = webpagesFetchedResponse.map((obj) => {
+                    return { url: obj.attributes.URL, webpageRefID: obj.id };
+                });
+                URLsAndRefsForWebpagesToUpload = URLarray.filter((url) => {
+                    for (let i = 0; i < webpagesFetched.length; i++) {
+                        const webpageFetched = webpagesFetched[i];
+                        if (webpageFetched.url === url) {
+                            URLsAndRefsForWebpagesToUpdate.push(webpageFetched);
+                            return false;
+                        } else return true;
+                    }
+                });
+            } else {
+                URLsAndRefsForWebpagesToUpload = URLarray;
+            }
+        })
+        .catch((e) => {
+            printShort(e);
+        });
+
+    return { URLsAndRefsForWebpagesToUpdate, URLsAndRefsForWebpagesToUpload };
 }
 
 // async function rootExistsInDBIfYesGetID(URLsample) {

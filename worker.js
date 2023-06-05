@@ -34,9 +34,10 @@ const workerHandler = async (job) => {
     job.data.url ? clearScreenshotsWorkingDir(getRootURL(job.data.url)) : null;
 
     switch (job.name) {
-        case "process-root-website":
-            URLmetaObject = prepareURL(job.data.url);
+        case "upload--process-root-website":
             await incrementLocalIDcounter();
+        case "update--process-root-website":
+            URLmetaObject = prepareURL(job.data.url);
             await processURL(
                 devicesAndBrowsers,
                 URLmetaObject,
@@ -54,10 +55,18 @@ const workerHandler = async (job) => {
                     printShort(e);
                 });
             break;
-        case "process-all-webpages":
-            job.data.URLarrayWithoutRoot.map(async (url) => {
-                const URLmetaObject = prepareURL(url);
-                await processURL(devicesAndBrowsers, URLmetaObject, url, job)
+        case "upload--process-webpages":
+        case "update--process-webpages":
+            console.dir(job.data);
+            job.data.URLarray.map(async (url) => {
+                const URLmetaObject = prepareURL(url || url.url);
+                await processURL(
+                    devicesAndBrowsers,
+                    URLmetaObject,
+                    url || url.url,
+                    job,
+                    job.data.refRootWebsiteID || url.webpageRefID
+                )
                     .then(() => {
                         console.log(
                             `It took ${
@@ -69,25 +78,6 @@ const workerHandler = async (job) => {
                         printShort(e);
                     });
             });
-            break;
-        case "update-root-website":
-            URLmetaObject = prepareURL(job.data.url);
-            await processURL(
-                devicesAndBrowsers,
-                URLmetaObject,
-                job.data.url,
-                job
-            )
-                .then(() => {
-                    console.log(
-                        `It took ${
-                            (Date.now() - timeAtStart) / 1000
-                        } seconds to complete ${URLmetaObject.URLSubpath}`
-                    );
-                })
-                .catch((e) => {
-                    printShort(e);
-                });
             break;
         default:
             console.log("Error. Unkown job name.");
@@ -101,7 +91,14 @@ worker.on("progress", (job, progress) => {
     console.log(progress);
 });
 
-async function processURL(devicesAndBrowsers, URLmetaObject, url, job) {
+async function processURL(
+    devicesAndBrowsers,
+    URLmetaObject,
+    url,
+    job,
+    webpageRefID
+) {
+    console.log("Roger!");
     return Promise.all(
         devicesAndBrowsers.map((obj) => {
             return takeScreenshot(
@@ -116,7 +113,7 @@ async function processURL(devicesAndBrowsers, URLmetaObject, url, job) {
         uploadToDB(
             URLmetaObject.plainRootURL,
             url,
-            job.data.refRootWebsiteID,
+            job.data.refRootWebsiteID || webpageRefID,
             job.name
         );
     });
