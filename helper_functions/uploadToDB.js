@@ -2,25 +2,56 @@ import fs from "fs";
 import axios from "axios";
 import fetch, { blobFrom } from "node-fetch";
 
-export default async function (plainRootURL, URL, refID, jobName) {
+export default async function (
+    plainRootURL,
+    URL,
+    refID,
+    job,
+    GLOBAL_STEPS,
+    timeAtStart
+) {
     const metaObject = getNamesOfAllMatchingImages(plainRootURL, URL);
 
-    switch (jobName) {
+    switch (job.name) {
         case "upload--process-root-website":
             // if (isRootWebpage(URL)) uploadRootWebsiteToDB(metaObject);
-            uploadRootWebsiteToDB(metaObject);
+            uploadRootWebsiteToDB(
+                URL,
+                metaObject,
+                job,
+                GLOBAL_STEPS,
+                timeAtStart
+            );
             break;
         case "update--process-root-website":
-            updateRootWebsiteInDB(metaObject, refID);
+            updateRootWebsiteInDB(
+                URL,
+                metaObject,
+                refID,
+                job,
+                GLOBAL_STEPS,
+                timeAtStart
+            );
             break;
         case "upload--process-webpages":
-            uploadWebpagesToDB(
+            uploadWebpageToDB(
+                URL,
                 metaObject,
-                refID || getCurrentWebsiteIDlocally()
+                refID || getCurrentWebsiteIDlocally(),
+                job,
+                GLOBAL_STEPS,
+                timeAtStart
             );
             break;
         case "update--process-webpages":
-            updateWebpagesInDB(metaObject, refID);
+            updateWebpageInDB(
+                URL,
+                metaObject,
+                refID,
+                job,
+                GLOBAL_STEPS,
+                timeAtStart
+            );
             break;
         default:
             console.log("Error. Unkown job name.");
@@ -60,11 +91,13 @@ function getCurrentWebsiteIDlocally() {
     return currentWebsiteID;
 }
 
-async function uploadRootWebsiteToDB({
-    plainURL,
-    parentDirFiles,
-    pathToImagesFolder,
-}) {
+async function uploadRootWebsiteToDB(
+    URL,
+    { plainURL, parentDirFiles, pathToImagesFolder },
+    job,
+    GLOBAL_STEPS,
+    timeAtStart
+) {
     const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
 
     let refID;
@@ -85,7 +118,7 @@ async function uploadRootWebsiteToDB({
             const file = await blobFrom(coverImageURI, "image/png");
 
             const form = new FormData();
-            form.append("files", file, "root-_chromium_-_desktop.png");
+            form.append("files", file, "root_-_chromium_-_desktop.png");
             form.append("refId", refID);
             form.append("ref", "api::website.website");
             form.append("field", "Frontpage_Screenshot");
@@ -98,21 +131,33 @@ async function uploadRootWebsiteToDB({
             return refID;
         })
         .then(async (refID) => {
-            await parentDirFiles.map(async (imgName) => {
-                console.log("imgName", imgName);
-                const form = new FormData();
-                const imgBlob = await blobFrom(
-                    `${pathToImagesFolder}/${imgName}`,
-                    "image/png"
+            Promise.all(
+                await parentDirFiles.map(async (imgName) => {
+                    const form = new FormData();
+                    const imgBlob = await blobFrom(
+                        `${pathToImagesFolder}/${imgName}`,
+                        "image/png"
+                    );
+                    form.append("files", imgBlob, imgName);
+                    form.append("refId", refID);
+                    form.append("ref", "api::website.website");
+                    form.append("field", "Screenshots");
+                    await fetch("http://127.0.0.1:1337/api/upload", {
+                        method: "post",
+                        body: form,
+                    }).then(async () => {
+                        await job.updateProgress({
+                            url: URL,
+                            currentStep: ++GLOBAL_STEPS,
+                        });
+                    });
+                })
+            ).then(() => {
+                console.log(
+                    `It took ${
+                        (Date.now() - timeAtStart) / 1000
+                    } seconds to complete ${plainURL}`
                 );
-                form.append("files", imgBlob, imgName);
-                form.append("refId", refID);
-                form.append("ref", "api::website.website");
-                form.append("field", "Screenshots");
-                res = await fetch("http://127.0.0.1:1337/api/upload", {
-                    method: "post",
-                    body: form,
-                });
             });
         })
         .catch((e) => {
@@ -124,10 +169,15 @@ async function uploadRootWebsiteToDB({
 }
 
 async function updateRootWebsiteInDB(
-    { parentDirFiles, pathToImagesFolder },
-    refID
+    URL,
+    { plainURL, parentDirFiles, pathToImagesFolder },
+    refID,
+    job,
+    GLOBAL_STEPS,
+    timeAtStart
 ) {
-    const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
+    // const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
 
     const data = {
         Web_Vitals_Score: "Hard-coded-changed",
@@ -142,11 +192,7 @@ async function updateRootWebsiteInDB(
             const file = await blobFrom(coverImageURI, "image/png");
 
             const form = new FormData();
-            form.append(
-                "files",
-                file,
-                "reviews_-_chromium_-_desktop_-_changed.png"
-            );
+            form.append("files", file, "root_-_chromium_-_desktop.png");
             form.append("refId", refID);
             form.append("ref", "api::website.website");
             form.append("field", "Frontpage_Screenshot");
@@ -157,34 +203,51 @@ async function updateRootWebsiteInDB(
             });
         })
         .then(async () => {
-            await parentDirFiles.map(async (imgName) => {
-                console.log("imgName", imgName);
-                const form = new FormData();
-                const imgBlob = await blobFrom(
-                    `${pathToImagesFolder}/${imgName}`,
-                    "image/png"
+            Promise.all(
+                await parentDirFiles.map(async (imgName) => {
+                    const form = new FormData();
+                    const imgBlob = await blobFrom(
+                        `${pathToImagesFolder}/${imgName}`,
+                        "image/png"
+                    );
+                    form.append("files", imgBlob, imgName);
+                    form.append("refId", refID);
+                    form.append("ref", "api::website.website");
+                    form.append("field", "Screenshots");
+                    await fetch("http://127.0.0.1:1337/api/upload", {
+                        method: "post",
+                        body: form,
+                    }).then(async () => {
+                        await job.updateProgress({
+                            url: URL,
+                            currentStep: ++GLOBAL_STEPS,
+                        });
+                    });
+                })
+            ).then(() => {
+                console.log(
+                    `It took ${
+                        (Date.now() - timeAtStart) / 1000
+                    } seconds to complete ${plainURL}`
                 );
-                form.append("files", imgBlob, imgName);
-                form.append("refId", refID);
-                form.append("ref", "api::website.website");
-                form.append("field", "Screenshots");
-                res = await fetch("http://127.0.0.1:1337/api/upload", {
-                    method: "post",
-                    body: form,
-                });
             });
         })
+
         .catch((e) => {
             console.log(
-                "Error in uploading website to DB:",
+                "Error in updating website in DB:",
                 JSON.stringify(e).slice(0, 250)
             );
         });
 }
 
-async function uploadWebpagesToDB(
+async function uploadWebpageToDB(
+    URL,
     { plainURL, parentDirFiles, pathToImagesFolder },
-    WebsiteIDforReference
+    WebsiteIDforReference,
+    job,
+    GLOBAL_STEPS,
+    timeAtStart
 ) {
     const data = {
         URL: plainURL,
@@ -198,21 +261,33 @@ async function uploadWebpagesToDB(
         .then(async (res) => {
             const refID = res.data.data.id;
 
-            await parentDirFiles.map(async (imgName) => {
-                console.log("imgName", imgName);
-                const form = new FormData();
-                const imgBlob = await blobFrom(
-                    `${pathToImagesFolder}/${imgName}`,
-                    "image/png"
+            Promise.all(
+                await parentDirFiles.map(async (imgName) => {
+                    const form = new FormData();
+                    const imgBlob = await blobFrom(
+                        `${pathToImagesFolder}/${imgName}`,
+                        "image/png"
+                    );
+                    form.append("files", imgBlob, imgName);
+                    form.append("refId", refID);
+                    form.append("ref", "api::webpage.webpage");
+                    form.append("field", "Screenshots");
+                    await fetch("http://127.0.0.1:1337/api/upload", {
+                        method: "post",
+                        body: form,
+                    }).then(async () => {
+                        await job.updateProgress({
+                            url: URL,
+                            currentStep: ++GLOBAL_STEPS,
+                        });
+                    });
+                })
+            ).then(() => {
+                console.log(
+                    `It took ${
+                        (Date.now() - timeAtStart) / 1000
+                    } seconds to complete ${plainURL}`
                 );
-                form.append("files", imgBlob, imgName);
-                form.append("refId", refID);
-                form.append("ref", "api::webpage.webpage");
-                form.append("field", "Screenshots");
-                res = await fetch("http://127.0.0.1:1337/api/upload", {
-                    method: "post",
-                    body: form,
-                });
             });
         })
         .catch((e) => {
@@ -223,9 +298,13 @@ async function uploadWebpagesToDB(
         });
 }
 
-async function updateWebpagesInDB(
-    { parentDirFiles, pathToImagesFolder },
-    refID
+async function updateWebpageInDB(
+    URL,
+    { plainURL, parentDirFiles, pathToImagesFolder },
+    refID,
+    job,
+    GLOBAL_STEPS,
+    timeAtStart
 ) {
     const data = {
         Screenshots: null, // clearing all old Screenshots
@@ -236,26 +315,38 @@ async function updateWebpagesInDB(
             data,
         })
         .then(async () => {
-            await parentDirFiles.map(async (imgName) => {
-                console.log("imgName", imgName);
-                const form = new FormData();
-                const imgBlob = await blobFrom(
-                    `${pathToImagesFolder}/${imgName}`,
-                    "image/png"
+            Promise.all(
+                await parentDirFiles.map(async (imgName) => {
+                    const form = new FormData();
+                    const imgBlob = await blobFrom(
+                        `${pathToImagesFolder}/${imgName}`,
+                        "image/png"
+                    );
+                    form.append("files", imgBlob, imgName);
+                    form.append("refId", refID);
+                    form.append("ref", "api::webpage.webpage");
+                    form.append("field", "Screenshots");
+                    await fetch("http://127.0.0.1:1337/api/upload", {
+                        method: "post",
+                        body: form,
+                    }).then(async () => {
+                        await job.updateProgress({
+                            url: URL,
+                            currentStep: ++GLOBAL_STEPS,
+                        });
+                    });
+                })
+            ).then(() => {
+                console.log(
+                    `It took ${
+                        (Date.now() - timeAtStart) / 1000
+                    } seconds to complete ${plainURL}`
                 );
-                form.append("files", imgBlob, imgName);
-                form.append("refId", refID);
-                form.append("ref", "api::webpage.webpage");
-                form.append("field", "Screenshots");
-                res = await fetch("http://127.0.0.1:1337/api/upload", {
-                    method: "post",
-                    body: form,
-                });
             });
         })
         .catch((e) => {
             console.log(
-                "Error in uploading website to DB:",
+                "Error in updating webpage in DB:",
                 JSON.stringify(e).slice(0, 250)
             );
         });

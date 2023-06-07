@@ -21,9 +21,9 @@ const workerHandler = async (job) => {
     const devicesAndBrowsers = [
         { browser: "chromium", device: "desktop" },
         { browser: "firefox", device: "desktop" },
-        /*{ browser: "webkit", device: "desktop" },
+        { browser: "webkit", device: "desktop" },
         { browser: "chromium", device: "mobile" },
-        { browser: "webkit", device: "mobile" }, */
+        { browser: "webkit", device: "mobile" },
     ];
 
     GLOBAL_STEPS = 0;
@@ -37,46 +37,33 @@ const workerHandler = async (job) => {
         case "upload--process-root-website":
             await incrementLocalIDcounter();
         case "update--process-root-website":
+            if (!job.data.url) return;
             URLmetaObject = prepareURL(job.data.url);
             await processURL(
                 devicesAndBrowsers,
                 URLmetaObject,
                 job.data.url,
-                job
-            )
-                .then(() => {
-                    console.log(
-                        `It took ${
-                            (Date.now() - timeAtStart) / 1000
-                        } seconds to complete ${URLmetaObject.URLSubpath}`
-                    );
-                })
-                .catch((e) => {
-                    printShort(e);
-                });
+                job,
+                null,
+                timeAtStart
+            ).catch((e) => {
+                printShort(e);
+            });
             break;
         case "upload--process-webpages":
         case "update--process-webpages":
-            console.dir(job.data);
             job.data.URLarray.map(async (url) => {
-                const URLmetaObject = prepareURL(url || url.url);
+                const URLmetaObject = prepareURL(url.url || url);
                 await processURL(
                     devicesAndBrowsers,
                     URLmetaObject,
-                    url || url.url,
+                    url.url || url,
                     job,
-                    job.data.refRootWebsiteID || url.webpageRefID
-                )
-                    .then(() => {
-                        console.log(
-                            `It took ${
-                                (Date.now() - timeAtStart) / 1000
-                            } seconds to complete ${URLmetaObject.URLSubpath}`
-                        );
-                    })
-                    .catch((e) => {
-                        printShort(e);
-                    });
+                    job.data.refRootWebsiteID || url.webpageRefID,
+                    timeAtStart
+                ).catch((e) => {
+                    printShort(e);
+                });
             });
             break;
         default:
@@ -96,9 +83,9 @@ async function processURL(
     URLmetaObject,
     url,
     job,
-    webpageRefID
+    webpageRefID,
+    timeAtStart
 ) {
-    console.log("Roger!");
     return Promise.all(
         devicesAndBrowsers.map((obj) => {
             return takeScreenshot(
@@ -109,14 +96,21 @@ async function processURL(
                 job
             );
         })
-    ).then(async () => {
-        uploadToDB(
-            URLmetaObject.plainRootURL,
-            url,
-            job.data.refRootWebsiteID || webpageRefID,
-            job.name
-        );
-    });
+    )
+        .then(async () => {
+            await uploadToDB(
+                URLmetaObject.plainRootURL,
+                url,
+                job.data.refRootWebsiteID || webpageRefID,
+                job,
+                GLOBAL_STEPS,
+                timeAtStart
+            );
+        })
+        .catch((e) => {
+            console.log("Error in worker.js processing.");
+            printShort(e);
+        });
 }
 
 async function takeScreenshot(
@@ -146,7 +140,6 @@ async function takeScreenshot(
         path: `app/projects/${plainRootURL}/screenshots/${URLSubpath}_-_${browser}_-_${device}.png`,
         fullPage: true,
     });
-    await job.updateProgress({ url, currentStep: ++GLOBAL_STEPS });
 }
 
 async function incrementLocalIDcounter() {

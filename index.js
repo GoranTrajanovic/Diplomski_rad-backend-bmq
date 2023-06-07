@@ -41,8 +41,6 @@ queueEvents.on("progress", ({ jobId, data }) => {
 } */
 
 app.post("/take_screenshots", async (req, res) => {
-    // console.log("received", req.body.urlArray);
-
     const URLarray = req.body.urlArray;
     const rootURLorFalse = isRootIncludedInArray(URLarray);
     const URLsample = URLarray[0];
@@ -56,7 +54,7 @@ app.post("/take_screenshots", async (req, res) => {
             URLarrayWithoutRoot
         );
 
-        console.log(webpagesURLsSeparated);
+        console.log("webpagesURLsSeparated", webpagesURLsSeparated);
 
         if (rootIDorFalse) {
             await new FlowProducer().add({
@@ -73,7 +71,6 @@ app.post("/take_screenshots", async (req, res) => {
                         data: {
                             URLarray:
                                 webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
-                            refRootWebsiteID: rootIDorFalse,
                         },
                         children: [
                             {
@@ -157,9 +154,6 @@ async function rootExistsInDBIfYesGetID(URLsample) {
     } catch (e) {
         printShort(e);
     }
-
-    /* const res = axios.get(process.env.STRAPI_URL_WEBSITES);
-    console.log(res); */
 }
 
 async function separateWebpagesIfExistInDB(URLarray) {
@@ -170,21 +164,24 @@ async function separateWebpagesIfExistInDB(URLarray) {
         .then(async (res) => {
             const webpagesFetchedResponse = await res.data.data;
             if (webpagesFetchedResponse.length !== 0) {
-                console.log("Something is still there");
                 const webpagesFetched = webpagesFetchedResponse.map((obj) => {
-                    return { url: obj.attributes.URL, webpageRefID: obj.id };
+                    return {
+                        url: `https://${obj.attributes.URL}`,
+                        webpageRefID: obj.id,
+                    };
                 });
-                URLsAndRefsForWebpagesToUpload = URLarray.filter((url) => {
-                    for (let i = 0; i < webpagesFetched.length; i++) {
-                        const webpageFetched = webpagesFetched[i];
-                        if (webpageFetched.url === url) {
-                            URLsAndRefsForWebpagesToUpdate.push(webpageFetched);
-                            return false;
-                        } else return true;
+
+                webpagesFetched.map((webpageFetched) => {
+                    if (URLarray.includes(webpageFetched.url)) {
+                        URLsAndRefsForWebpagesToUpdate.push(webpageFetched);
+                        URLarray = URLarray.filter(
+                            (url) => url !== webpageFetched.url
+                        );
                     }
                 });
+                URLsAndRefsForWebpagesToUpload = [...URLarray];
             } else {
-                URLsAndRefsForWebpagesToUpload = URLarray;
+                URLsAndRefsForWebpagesToUpload = [...URLarray];
             }
         })
         .catch((e) => {
@@ -193,23 +190,3 @@ async function separateWebpagesIfExistInDB(URLarray) {
 
     return { URLsAndRefsForWebpagesToUpdate, URLsAndRefsForWebpagesToUpload };
 }
-
-// async function rootExistsInDBIfYesGetID(URLsample) {
-//     console.log("(f)rootExistsInDB called!");
-//     axios
-//         .get("http://127.0.0.1:1337/api/websites")
-//         .then((res) => {
-//             const websitesFetched = res.data.data;
-//             for (let i = 0; i < websitesFetched.length; i++) {
-//                 const obj = websitesFetched[i];
-//                 if (obj.attributes.Root_URL === getRootURL(URLsample))
-//                     return obj.id;
-//             }
-//             return false;
-//         })
-//         .catch((e) => {
-//             printShort(e);
-//         });
-//     /* const res = axios.get(process.env.STRAPI_URL_WEBSITES);
-//     console.log(res); */
-// }
