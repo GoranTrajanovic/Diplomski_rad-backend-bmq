@@ -31,8 +31,6 @@ const workerHandler = async (job) => {
     let timeAtStart = Date.now();
     let URLmetaObject;
 
-    job.data.url ? clearScreenshotsWorkingDir(getRootURL(job.data.url)) : null;
-
     switch (job.name) {
         case "upload--process-root-website":
             await incrementLocalIDcounter();
@@ -72,7 +70,11 @@ const workerHandler = async (job) => {
     return "Finished";
 };
 
-const worker = new Worker("recordScreenshots", workerHandler, workerOptions);
+const worker = new Worker(
+    "processWebsiteAndWebpages",
+    workerHandler,
+    workerOptions
+);
 
 worker.on("progress", (job, progress) => {
     console.log(progress);

@@ -7,21 +7,25 @@ const server = http.createServer(app);
 import { Server } from "socket.io";
 import printShort from "./helper_functions/printShort.js";
 import getRootURL from "./helper_functions/getRootURL.js";
+import clearScreenshotsWorkingDir from "./helper_functions/clearScreenshotsWorkingDir.js";
 import { FragmentsOnCompositeTypesRule } from "graphql";
 const io = new Server(server);
 let SOCKET;
 const PORT = 8888;
 
+let URLS_IN_PROCESSING = [];
+let NUM_OF_URLS_PROCESSED = 0;
+
 app.use(express.json());
 
-const myQueue = new Queue("recordScreenshots", {
+const myQueue = new Queue("processWebsiteAndWebpages", {
     connection: {
         host: "localhost",
         port: 6379,
     },
 });
 
-const queueEvents = new QueueEvents("recordScreenshots", {
+const queueEvents = new QueueEvents("processWebsiteAndWebpages", {
     connection: {
         host: "localhost",
         port: 6379,
@@ -30,6 +34,11 @@ const queueEvents = new QueueEvents("recordScreenshots", {
 
 queueEvents.on("progress", ({ jobId, data }) => {
     SOCKET.emit("progress", data);
+
+    if (data.currentStep === 5)
+        URLS_IN_PROCESSING = [
+            ...URLS_IN_PROCESSING.filter((url) => url !== data.url),
+        ];
 });
 
 /* async function addJobs(URLarrayWithoutRoot, refRootWebsiteID) {
@@ -41,9 +50,15 @@ queueEvents.on("progress", ({ jobId, data }) => {
 } */
 
 app.post("/take_screenshots", async (req, res) => {
-    const URLarray = req.body.urlArray;
+    // let URLarray = req.body.urlArray;
+    let URLarray = checkIdempotence(req.body.urlArray);
+
+    if (URLarray.length) clearScreenshotsWorkingDir(getRootURL(URLarray[0]));
+    else return;
+
     const rootURLorFalse = isRootIncludedInArray(URLarray);
     const URLsample = URLarray[0];
+    // if (NUM_OF_URLS_PROCESSED === 0) NUM_OF_URLS_PROCESSED = URLarray.length;
 
     try {
         const rootIDorFalse = await rootExistsInDBIfYesGetID(URLsample);
@@ -56,10 +71,15 @@ app.post("/take_screenshots", async (req, res) => {
 
         console.log("webpagesURLsSeparated", webpagesURLsSeparated);
 
+        setInterval(() => {
+            if (URLS_IN_PROCESSING.length)
+                console.log("URLs in processing: ", URLS_IN_PROCESSING);
+        }, 3000);
+
         if (rootIDorFalse) {
             await new FlowProducer().add({
                 name: "update--process-webpages",
-                queueName: "recordScreenshots",
+                queueName: "processWebsiteAndWebpages",
                 data: {
                     URLarray:
                         webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
@@ -67,7 +87,7 @@ app.post("/take_screenshots", async (req, res) => {
                 children: [
                     {
                         name: "upload--process-webpages",
-                        queueName: "recordScreenshots",
+                        queueName: "processWebsiteAndWebpages",
                         data: {
                             URLarray:
                                 webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
@@ -75,7 +95,7 @@ app.post("/take_screenshots", async (req, res) => {
                         children: [
                             {
                                 name: "update--process-root-website",
-                                queueName: "recordScreenshots",
+                                queueName: "processWebsiteAndWebpages",
                                 data: {
                                     url: rootURLorFalse,
                                     refRootWebsiteID: rootIDorFalse,
@@ -89,7 +109,7 @@ app.post("/take_screenshots", async (req, res) => {
         } else if (rootURLorFalse) {
             await new FlowProducer().add({
                 name: "update--process-webpages",
-                queueName: "recordScreenshots",
+                queueName: "processWebsiteAndWebpages",
                 data: {
                     URLarray:
                         webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
@@ -97,7 +117,7 @@ app.post("/take_screenshots", async (req, res) => {
                 children: [
                     {
                         name: "upload--process-webpages",
-                        queueName: "recordScreenshots",
+                        queueName: "processWebsiteAndWebpages",
                         data: {
                             URLarray:
                                 webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
@@ -105,7 +125,7 @@ app.post("/take_screenshots", async (req, res) => {
                         children: [
                             {
                                 name: "upload--process-root-website",
-                                queueName: "recordScreenshots",
+                                queueName: "processWebsiteAndWebpages",
                                 data: { url: rootURLorFalse },
                             },
                         ],
@@ -189,4 +209,18 @@ async function separateWebpagesIfExistInDB(URLarray) {
         });
 
     return { URLsAndRefsForWebpagesToUpdate, URLsAndRefsForWebpagesToUpload };
+}
+
+function checkIdempotence(URLarray) {
+    let tempURLarray = [];
+    if (URLS_IN_PROCESSING.length === 0) {
+        URLS_IN_PROCESSING = [...URLarray];
+        return [...URLarray];
+    } else {
+        tempURLarray = [
+            ...URLarray.filter((url) => !URLS_IN_PROCESSING.includes(url)),
+        ];
+        URLS_IN_PROCESSING = [...URLS_IN_PROCESSING, ...tempURLarray];
+        return [...tempURLarray];
+    }
 }
