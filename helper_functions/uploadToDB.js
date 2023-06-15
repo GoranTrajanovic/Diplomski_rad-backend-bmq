@@ -98,7 +98,7 @@ async function uploadRootWebsiteToDB(
     GLOBAL_STEPS,
     timeAtStart
 ) {
-    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.png`;
 
     let refID;
 
@@ -160,11 +160,15 @@ async function uploadRootWebsiteToDB(
                 );
             });
         })
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in uploading website to DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }
 
@@ -177,7 +181,7 @@ async function updateRootWebsiteInDB(
     timeAtStart
 ) {
     // const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
-    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.png`;
 
     const data = {
         Web_Vitals_Score: "Hard-coded-changed",
@@ -233,11 +237,15 @@ async function updateRootWebsiteInDB(
             });
         })
 
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in updating website in DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }
 
@@ -290,11 +298,15 @@ async function uploadWebpageToDB(
                 );
             });
         })
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in uploading webpages to DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }
 
@@ -344,10 +356,14 @@ async function updateWebpageInDB(
                 );
             });
         })
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in updating webpage in DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }

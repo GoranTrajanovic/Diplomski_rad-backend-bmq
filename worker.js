@@ -4,8 +4,6 @@ import { chromium, firefox, webkit, devices } from "playwright";
 import prepareURL from "./helper_functions/prepareURL.js";
 import uploadToDB from "./helper_functions/uploadToDB.js";
 import printShort from "./helper_functions/printShort.js";
-import getRootURL from "./helper_functions/getRootURL.js";
-import clearScreenshotsWorkingDir from "./helper_functions/clearScreenshotsWorkingDir.js";
 
 const workerOptions = {
     connection: {
@@ -109,9 +107,13 @@ async function processURL(
                 timeAtStart
             );
         })
-        .catch((e) => {
+        .catch(async (e) => {
             console.log("Error in worker.js processing.");
             printShort(e);
+            await job.updateProgress({
+                url,
+                error: true,
+            });
         });
 }
 
@@ -133,6 +135,23 @@ async function takeScreenshot(
     ).launch();
     // let browserPW = await chromium.launch();
     // let context = await browserPW.newContext();
+
+    if (
+        URLSubpath === "root" &&
+        browser === "chromium" &&
+        device === "desktop"
+    ) {
+        let context = await browserPW.newContext(
+            device === "mobile" ? devices["iPhone 11"] : null
+        );
+        let page = await context.newPage();
+        await page.goto(url);
+        await page.screenshot({
+            path: `app/projects/${plainRootURL}/screenshots/${URLSubpath}_-_${browser}_-_${device}_-_frontpage.png`,
+            fullPage: false,
+        });
+    }
+
     let context = await browserPW.newContext(
         device === "mobile" ? devices["iPhone 11"] : null
     );
