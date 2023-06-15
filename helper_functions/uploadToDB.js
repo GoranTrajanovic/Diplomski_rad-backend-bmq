@@ -98,7 +98,7 @@ async function uploadRootWebsiteToDB(
     GLOBAL_STEPS,
     timeAtStart
 ) {
-    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.png`;
 
     let refID;
 
@@ -133,6 +133,8 @@ async function uploadRootWebsiteToDB(
         .then(async (refID) => {
             Promise.all(
                 await parentDirFiles.map(async (imgName) => {
+                    if (imgName === "root_-_chromium_-_desktop_-_frontpage.png")
+                        return;
                     const form = new FormData();
                     const imgBlob = await blobFrom(
                         `${pathToImagesFolder}/${imgName}`,
@@ -160,11 +162,15 @@ async function uploadRootWebsiteToDB(
                 );
             });
         })
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in uploading website to DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }
 
@@ -177,7 +183,7 @@ async function updateRootWebsiteInDB(
     timeAtStart
 ) {
     // const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
-    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop.png`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.png`;
 
     const data = {
         Web_Vitals_Score: "Hard-coded-changed",
@@ -205,6 +211,8 @@ async function updateRootWebsiteInDB(
         .then(async () => {
             Promise.all(
                 await parentDirFiles.map(async (imgName) => {
+                    if (imgName === "root_-_chromium_-_desktop_-_frontpage.png")
+                        return;
                     const form = new FormData();
                     const imgBlob = await blobFrom(
                         `${pathToImagesFolder}/${imgName}`,
@@ -233,11 +241,15 @@ async function updateRootWebsiteInDB(
             });
         })
 
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in updating website in DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }
 
@@ -290,11 +302,15 @@ async function uploadWebpageToDB(
                 );
             });
         })
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in uploading webpages to DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }
 
@@ -344,10 +360,14 @@ async function updateWebpageInDB(
                 );
             });
         })
-        .catch((e) => {
+        .catch(async (e) => {
             console.log(
                 "Error in updating webpage in DB:",
                 JSON.stringify(e).slice(0, 250)
             );
+            await job.updateProgress({
+                url: URL,
+                error: true,
+            });
         });
 }

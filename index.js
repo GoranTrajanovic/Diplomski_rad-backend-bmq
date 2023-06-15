@@ -33,7 +33,12 @@ const queueEvents = new QueueEvents("processWebsiteAndWebpages", {
 });
 
 queueEvents.on("progress", ({ jobId, data }) => {
-    SOCKET.emit("progress", data);
+    if (data.error) {
+        SOCKET.emit("error_in_processing", data);
+        URLS_IN_PROCESSING = [
+            ...URLS_IN_PROCESSING.filter((url) => url !== data.url),
+        ];
+    } else SOCKET.emit("progress", data);
 
     if (data.currentStep === 5)
         URLS_IN_PROCESSING = [
