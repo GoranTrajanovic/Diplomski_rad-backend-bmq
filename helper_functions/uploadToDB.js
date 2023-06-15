@@ -118,7 +118,11 @@ async function uploadRootWebsiteToDB(
             const file = await blobFrom(coverImageURI, "image/png");
 
             const form = new FormData();
-            form.append("files", file, "root_-_chromium_-_desktop.png");
+            form.append(
+                "files",
+                file,
+                "root_-_chromium_-_desktop_-_frontpage.png"
+            );
             form.append("refId", refID);
             form.append("ref", "api::website.website");
             form.append("field", "Frontpage_Screenshot");
@@ -198,7 +202,11 @@ async function updateRootWebsiteInDB(
             const file = await blobFrom(coverImageURI, "image/png");
 
             const form = new FormData();
-            form.append("files", file, "root_-_chromium_-_desktop.png");
+            form.append(
+                "files",
+                file,
+                "root_-_chromium_-_desktop_-_frontpage.png"
+            );
             form.append("refId", refID);
             form.append("ref", "api::website.website");
             form.append("field", "Frontpage_Screenshot");
