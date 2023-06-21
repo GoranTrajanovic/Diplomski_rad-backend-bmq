@@ -33,7 +33,7 @@ const workerHandler = async (job) => {
         case "upload--process-root-website":
             await incrementLocalIDcounter();
         case "update--process-root-website":
-            if (!job.data.url) return;
+            if (!job.data.url) return; // because there is a scenario where root-website is in db but we didnt select it for updating
             URLmetaObject = prepareURL(job.data.url);
             await processURL(
                 devicesAndBrowsers,
@@ -83,7 +83,7 @@ async function processURL(
     URLmetaObject,
     url,
     job,
-    webpageRefID,
+    refID,
     timeAtStart
 ) {
     return Promise.all(
@@ -101,7 +101,7 @@ async function processURL(
             await uploadToDB(
                 URLmetaObject.plainRootURL,
                 url,
-                job.data.refRootWebsiteID || webpageRefID,
+                refID,
                 job,
                 GLOBAL_STEPS,
                 timeAtStart

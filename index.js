@@ -96,6 +96,7 @@ app.post("/take_screenshots", async (req, res) => {
                         data: {
                             URLarray:
                                 webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
+                            refRootWebsiteID: rootIDorFalse,
                         },
                         children: [
                             {
@@ -113,27 +114,17 @@ app.post("/take_screenshots", async (req, res) => {
             res.status(200);
         } else if (rootURLorFalse) {
             await new FlowProducer().add({
-                name: "update--process-webpages",
+                name: "upload--process-webpages",
                 queueName: "processWebsiteAndWebpages",
                 data: {
                     URLarray:
-                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
+                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
                 },
                 children: [
                     {
-                        name: "upload--process-webpages",
+                        name: "upload--process-root-website",
                         queueName: "processWebsiteAndWebpages",
-                        data: {
-                            URLarray:
-                                webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
-                        },
-                        children: [
-                            {
-                                name: "upload--process-root-website",
-                                queueName: "processWebsiteAndWebpages",
-                                data: { url: rootURLorFalse },
-                            },
-                        ],
+                        data: { url: rootURLorFalse },
                     },
                 ],
             });
@@ -199,6 +190,8 @@ async function separateWebpagesIfExistInDB(URLarray) {
                 webpagesFetched.map((webpageFetched) => {
                     if (URLarray.includes(webpageFetched.url)) {
                         URLsAndRefsForWebpagesToUpdate.push(webpageFetched);
+                        // the below filtering is fishy,
+                        //it reinitializes URLarray over and over again
                         URLarray = URLarray.filter(
                             (url) => url !== webpageFetched.url
                         );
