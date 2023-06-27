@@ -82,15 +82,6 @@ function getNamesOfAllMatchingImages(plainRootURL, URL) {
     return { plainURL, parentDirFiles, pathToImagesFolder };
 }
 
-function getCurrentWebsiteIDlocally() {
-    const filePath = `app/projects/Website_CurrentID.txt`;
-    let currentWebsiteID = fs.readFileSync(filePath, {
-        encoding: "utf8",
-    });
-
-    return currentWebsiteID;
-}
-
 async function uploadRootWebsiteToDB(
     URL,
     { plainURL, parentDirFiles, pathToImagesFolder },

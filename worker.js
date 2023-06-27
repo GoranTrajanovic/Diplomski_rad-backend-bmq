@@ -10,19 +10,11 @@ const workerOptions = {
         host: "localhost",
         port: 6379,
     },
-    // concurrency: 3,
 };
 
 let GLOBAL_STEPS = 0;
 
 let URLmetaObject;
-
-const mySecondQueue = new Queue("processWebpagesInParallel", {
-    connection: {
-        host: "localhost",
-        port: 6379,
-    },
-});
 
 const workerHandler = async (job) => {
     const devicesAndBrowsers = [
@@ -39,20 +31,6 @@ const workerHandler = async (job) => {
 
     console.log("In worker");
     console.log("Worker called for: ", job.name);
-
-    /* if (job.data.myQueue) {
-        const childrenValues = await job.getChildrenValues();
-        console.log("These are children values: ", childrenValues);
-        return;
-        const refRootWebsiteID = getCurrentWebsiteIDlocally();
-        job.data.URLarray.map(async (url) => {
-            await myQueue.add("upload--process-webpages", {
-                url,
-                refRootWebsiteID,
-            });
-        });
-        return;
-    } */
 
     switch (job.name) {
         case "upload--process-root-website":
@@ -77,19 +55,6 @@ const workerHandler = async (job) => {
             break;
         case "upload--process-webpages":
         case "update--process-webpages":
-            /* job.data.URLarray.map(async (url) => {
-                const URLmetaObject = prepareURL(url.url || url);
-                await processURL(
-                    devicesAndBrowsers,
-                    URLmetaObject,
-                    url.url || url,
-                    job,
-                    job.data.refRootWebsiteID || url.webpageRefID,
-                    timeAtStart
-                ).catch((e) => {
-                    printShort(e);
-                });
-            }); */
             URLmetaObject = prepareURL(job.data.url);
             await processURL(
                 devicesAndBrowsers,
@@ -201,13 +166,4 @@ async function takeScreenshot(
         path: `app/projects/${plainRootURL}/screenshots/${URLSubpath}_-_${browser}_-_${device}.png`,
         fullPage: true,
     });
-}
-
-async function incrementLocalIDcounter() {
-    const filePath = `app/projects/Website_CurrentID.txt`;
-    let nextWebsiteID = fs.readFileSync(filePath, {
-        encoding: "utf8",
-    });
-
-    fs.writeFileSync(filePath, (parseInt(nextWebsiteID) + 1).toString());
 }

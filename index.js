@@ -1,4 +1,4 @@
-import { Job, Queue, QueueEvents, FlowProducer } from "bullmq";
+import { Queue, QueueEvents } from "bullmq";
 import express from "express";
 import axios from "axios";
 const app = express();
@@ -8,7 +8,7 @@ import { Server } from "socket.io";
 import printShort from "./helper_functions/printShort.js";
 import getRootURL from "./helper_functions/getRootURL.js";
 import clearScreenshotsWorkingDir from "./helper_functions/clearScreenshotsWorkingDir.js";
-import { FragmentsOnCompositeTypesRule } from "graphql";
+
 const io = new Server(server);
 let SOCKET;
 const PORT = 8888;
@@ -59,8 +59,6 @@ async function addSimultaneousJobs(
     refRootWebsiteID,
     rootWebsiteURL
 ) {
-    // console.log("urlArray in addJobs", urlArray);
-
     webpagesURLsForUpload.map(async (url) => {
         await myQueue.add("upload--process-webpages", {
             url,
@@ -89,10 +87,9 @@ app.post("/take_screenshots", async (req, res) => {
 
     const rootURLorFalse = isRootIncludedInArray(URLarray);
     const URLsample = URLarray[0];
-    // if (NUM_OF_URLS_PROCESSED === 0) NUM_OF_URLS_PROCESSED = URLarray.length;
 
     try {
-        const rootIDorFalse = await rootExistsInDBIfYesGetID(URLsample);
+        let rootIDorFalse = await rootExistsInDBIfYesGetID(URLsample);
         const URLarrayWithoutRoot = URLarray.filter(
             (URL) => URL !== rootURLorFalse
         );
@@ -119,23 +116,33 @@ app.post("/take_screenshots", async (req, res) => {
             );
             res.status(200);
         } else if (rootURLorFalse) {
-            console.log("Gonna call flowproducer");
-            await new FlowProducer().add({
-                name: "upload--process-webpages",
-                queueName: "processWebsiteAndWebpages",
-                data: {
-                    URLarray:
-                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
-                    myQueue,
-                },
-                children: [
-                    {
-                        name: "upload--process-root-website",
-                        queueName: "processWebsiteAndWebpages",
-                        data: { url: rootURLorFalse },
-                    },
-                ],
+            await myQueue.add("upload--process-root-website", {
+                url: rootURLorFalse,
             });
+
+            const ITERATIONS_POSSIBLE = 6;
+            const INTERVAL_DURATION = 3000;
+            let counter = 0;
+            const limitedInterval = setInterval(async () => {
+                console.log("Step %d in trying to fetch ID.", counter);
+                rootIDorFalse = await rootExistsInDBIfYesGetID(
+                    webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload[0]
+                );
+                if (counter > ITERATIONS_POSSIBLE || rootIDorFalse) {
+                    if (rootIDorFalse) {
+                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload.map(
+                            async (url) => {
+                                await myQueue.add("upload--process-webpages", {
+                                    url,
+                                    refRootWebsiteID: rootIDorFalse,
+                                });
+                            }
+                        );
+                    }
+                    clearInterval(limitedInterval);
+                }
+                counter++;
+            }, INTERVAL_DURATION);
             res.status(200);
         } else {
             SOCKET.emit("no_root", "no_root");
