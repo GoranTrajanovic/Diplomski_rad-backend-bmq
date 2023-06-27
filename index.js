@@ -14,7 +14,6 @@ let SOCKET;
 const PORT = 8888;
 
 let URLS_IN_PROCESSING = [];
-let NUM_OF_URLS_PROCESSED = 0;
 
 app.use(express.json());
 
@@ -54,6 +53,33 @@ queueEvents.on("progress", ({ jobId, data }) => {
     });
 } */
 
+async function addSimultaneousJobs(
+    webpagesURLsForUpload,
+    webpagesURLsForUpdate,
+    refRootWebsiteID,
+    rootWebsiteURL
+) {
+    // console.log("urlArray in addJobs", urlArray);
+
+    webpagesURLsForUpload.map(async (url) => {
+        await myQueue.add("upload--process-webpages", {
+            url,
+            refRootWebsiteID,
+        });
+    });
+
+    webpagesURLsForUpdate.map(async ({ url, webpageRefID }) => {
+        await myQueue.add("update--process-webpages", {
+            url,
+            webpageRefID,
+        });
+    });
+    await myQueue.add("update--process-root-website", {
+        url: rootWebsiteURL,
+        refRootWebsiteID,
+    });
+}
+
 app.post("/take_screenshots", async (req, res) => {
     // let URLarray = req.body.urlArray;
     let URLarray = checkIdempotence(req.body.urlArray);
@@ -78,47 +104,29 @@ app.post("/take_screenshots", async (req, res) => {
 
         setInterval(() => {
             if (URLS_IN_PROCESSING.length)
-                console.log("URLs in processing: ", URLS_IN_PROCESSING);
-        }, 3000);
+                console.log(
+                    ">>>>>>>>>>>URLs in processing: ",
+                    URLS_IN_PROCESSING
+                );
+        }, 5000);
 
         if (rootIDorFalse) {
-            await new FlowProducer().add({
-                name: "update--process-webpages",
-                queueName: "processWebsiteAndWebpages",
-                data: {
-                    URLarray:
-                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
-                },
-                children: [
-                    {
-                        name: "upload--process-webpages",
-                        queueName: "processWebsiteAndWebpages",
-                        data: {
-                            URLarray:
-                                webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
-                            refRootWebsiteID: rootIDorFalse,
-                        },
-                        children: [
-                            {
-                                name: "update--process-root-website",
-                                queueName: "processWebsiteAndWebpages",
-                                data: {
-                                    url: rootURLorFalse,
-                                    refRootWebsiteID: rootIDorFalse,
-                                },
-                            },
-                        ],
-                    },
-                ],
-            });
+            await addSimultaneousJobs(
+                webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
+                webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
+                rootIDorFalse,
+                rootURLorFalse
+            );
             res.status(200);
         } else if (rootURLorFalse) {
+            console.log("Gonna call flowproducer");
             await new FlowProducer().add({
                 name: "upload--process-webpages",
                 queueName: "processWebsiteAndWebpages",
                 data: {
                     URLarray:
                         webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
+                    myQueue,
                 },
                 children: [
                     {

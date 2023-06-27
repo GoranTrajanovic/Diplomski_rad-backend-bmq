@@ -15,6 +15,15 @@ const workerOptions = {
 
 let GLOBAL_STEPS = 0;
 
+let URLmetaObject;
+
+const mySecondQueue = new Queue("processWebpagesInParallel", {
+    connection: {
+        host: "localhost",
+        port: 6379,
+    },
+});
+
 const workerHandler = async (job) => {
     const devicesAndBrowsers = [
         { browser: "chromium", device: "desktop" },
@@ -27,20 +36,40 @@ const workerHandler = async (job) => {
     GLOBAL_STEPS = 0;
 
     let timeAtStart = Date.now();
-    let URLmetaObject;
+
+    console.log("In worker");
+    console.log("Worker called for: ", job.name);
+
+    /* if (job.data.myQueue) {
+        const childrenValues = await job.getChildrenValues();
+        console.log("These are children values: ", childrenValues);
+        return;
+        const refRootWebsiteID = getCurrentWebsiteIDlocally();
+        job.data.URLarray.map(async (url) => {
+            await myQueue.add("upload--process-webpages", {
+                url,
+                refRootWebsiteID,
+            });
+        });
+        return;
+    } */
 
     switch (job.name) {
         case "upload--process-root-website":
-            await incrementLocalIDcounter();
+        // await incrementLocalIDcounter();
         case "update--process-root-website":
             if (!job.data.url) return; // because there is a scenario where root-website is in db but we didnt select it for updating
             URLmetaObject = prepareURL(job.data.url);
+            console.log("we returned with", URLmetaObject);
+            console.log(
+                `We are prepared to update: ${job.data.url} with ref of ${job.data.refRootWebsiteID}`
+            );
             await processURL(
                 devicesAndBrowsers,
                 URLmetaObject,
                 job.data.url,
                 job,
-                null,
+                job.data.refRootWebsiteID,
                 timeAtStart
             ).catch((e) => {
                 printShort(e);
@@ -48,7 +77,7 @@ const workerHandler = async (job) => {
             break;
         case "upload--process-webpages":
         case "update--process-webpages":
-            job.data.URLarray.map(async (url) => {
+            /* job.data.URLarray.map(async (url) => {
                 const URLmetaObject = prepareURL(url.url || url);
                 await processURL(
                     devicesAndBrowsers,
@@ -60,6 +89,17 @@ const workerHandler = async (job) => {
                 ).catch((e) => {
                     printShort(e);
                 });
+            }); */
+            URLmetaObject = prepareURL(job.data.url);
+            await processURL(
+                devicesAndBrowsers,
+                URLmetaObject,
+                job.data.url,
+                job,
+                job.data.refRootWebsiteID || job.data.webpageRefID,
+                timeAtStart
+            ).catch((e) => {
+                printShort(e);
             });
             break;
         default:
@@ -124,7 +164,7 @@ async function takeScreenshot(
     url,
     job
 ) {
-    console.log(`Processing: ${url} | ${browser} | ${device}`);
+    console.log(`~~~~~~~~~~~Processing: ${url} | ${browser} | ${device}`);
     let browserPW = await (browser === "chromium"
         ? chromium
         : browser === "firefox"

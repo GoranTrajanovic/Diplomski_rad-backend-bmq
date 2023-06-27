@@ -37,7 +37,7 @@ export default async function (
             uploadWebpageToDB(
                 URL,
                 metaObject,
-                refID || getCurrentWebsiteIDlocally(),
+                refID,
                 job,
                 GLOBAL_STEPS,
                 timeAtStart
