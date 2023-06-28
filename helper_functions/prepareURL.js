@@ -1,13 +1,12 @@
 export default function prepareURL(URL) {
     const URLWithoutHttps = URL.substring(URL.indexOf("//") + 2);
-    const plainRootURL = URLWithoutHttps.substring(
-        0,
-        URLWithoutHttps.indexOf("/")
-    );
+    const plainRootURL = URLWithoutHttps.includes("/")
+        ? URLWithoutHttps.substring(0, URLWithoutHttps.indexOf("/"))
+        : URLWithoutHttps;
     let URLSubpath = URLWithoutHttps.substring(
         URLWithoutHttps.indexOf("/") + 1
     );
-    URLSubpath = URLSubpath === "" ? "root" : URLSubpath;
+    URLSubpath = URLWithoutHttps.includes("/") ? URLSubpath : "root";
 
     /* let today = new Date();
     let date =

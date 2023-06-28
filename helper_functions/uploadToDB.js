@@ -59,19 +59,18 @@ export default async function (
 }
 
 function isRootWebpage(URL) {
-    return URL.slice(URL.lastIndexOf("/") + 1, URL.length) === "";
+    return [...URL.matchAll(/\//g)].length === 2;
 }
 
 function getNamesOfAllMatchingImages(plainRootURL, URL) {
     // const parentDir = dir.slice(0, dir.indexOf("/"));
     const pathToImagesFolder = `app/projects/${plainRootURL}/screenshots`;
-    const plainURL = URL.slice(
-        URL.indexOf("//") + 2,
-        isRootWebpage(URL) ? URL.length - 1 : URL.length
-    );
+    const plainURL = URL.slice(URL.indexOf("//") + 2, URL.length);
     // const plainRootURL = plainURL.slice(0, plainURL.indexOf("/"));
     let parentDirFiles = fs.readdirSync(pathToImagesFolder);
     parentDirFiles = parentDirFiles.filter((imgName) => {
+        // part before || groups all non-root images for a particular webpage
+        // part after || groups all root images for the website
         return (
             imgName.slice(0, imgName.indexOf("_")) ===
                 URL.slice(URL.lastIndexOf("/") + 1, URL.length) ||
@@ -89,7 +88,7 @@ async function uploadRootWebsiteToDB(
     GLOBAL_STEPS,
     timeAtStart
 ) {
-    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.png`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.jpg`;
 
     let refID;
 
@@ -106,13 +105,13 @@ async function uploadRootWebsiteToDB(
         .then(async (res) => {
             refID = res.data.data.id;
 
-            const file = await blobFrom(coverImageURI, "image/png");
+            const file = await blobFrom(coverImageURI, "image/jpg");
 
             const form = new FormData();
             form.append(
                 "files",
                 file,
-                "root_-_chromium_-_desktop_-_frontpage.png"
+                "root_-_chromium_-_desktop_-_frontpage.jpg"
             );
             form.append("refId", refID);
             form.append("ref", "api::website.website");
@@ -128,12 +127,12 @@ async function uploadRootWebsiteToDB(
         .then(async (refID) => {
             Promise.all(
                 await parentDirFiles.map(async (imgName) => {
-                    if (imgName === "root_-_chromium_-_desktop_-_frontpage.png")
+                    if (imgName === "root_-_chromium_-_desktop_-_frontpage.jpg")
                         return;
                     const form = new FormData();
                     const imgBlob = await blobFrom(
                         `${pathToImagesFolder}/${imgName}`,
-                        "image/png"
+                        "image/jpg"
                     );
                     form.append("files", imgBlob, imgName);
                     form.append("refId", refID);
@@ -178,7 +177,7 @@ async function updateRootWebsiteInDB(
     timeAtStart
 ) {
     // const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
-    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.png`;
+    const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.jpg`;
 
     const data = {
         Web_Vitals_Score: "Hard-coded-changed",
@@ -190,13 +189,13 @@ async function updateRootWebsiteInDB(
             data,
         })
         .then(async (res) => {
-            const file = await blobFrom(coverImageURI, "image/png");
+            const file = await blobFrom(coverImageURI, "image/jpg");
 
             const form = new FormData();
             form.append(
                 "files",
                 file,
-                "root_-_chromium_-_desktop_-_frontpage.png"
+                "root_-_chromium_-_desktop_-_frontpage.jpg"
             );
             form.append("refId", refID);
             form.append("ref", "api::website.website");
@@ -210,12 +209,12 @@ async function updateRootWebsiteInDB(
         .then(async () => {
             Promise.all(
                 await parentDirFiles.map(async (imgName) => {
-                    if (imgName === "root_-_chromium_-_desktop_-_frontpage.png")
+                    if (imgName === "root_-_chromium_-_desktop_-_frontpage.jpg")
                         return;
                     const form = new FormData();
                     const imgBlob = await blobFrom(
                         `${pathToImagesFolder}/${imgName}`,
-                        "image/png"
+                        "image/jpg"
                     );
                     form.append("files", imgBlob, imgName);
                     form.append("refId", refID);
@@ -277,7 +276,7 @@ async function uploadWebpageToDB(
                     const form = new FormData();
                     const imgBlob = await blobFrom(
                         `${pathToImagesFolder}/${imgName}`,
-                        "image/png"
+                        "image/jpg"
                     );
                     form.append("files", imgBlob, imgName);
                     form.append("refId", refID);
@@ -335,7 +334,7 @@ async function updateWebpageInDB(
                     const form = new FormData();
                     const imgBlob = await blobFrom(
                         `${pathToImagesFolder}/${imgName}`,
-                        "image/png"
+                        "image/jpg"
                     );
                     form.append("files", imgBlob, imgName);
                     form.append("refId", refID);

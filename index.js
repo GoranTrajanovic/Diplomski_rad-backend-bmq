@@ -59,14 +59,14 @@ async function addSimultaneousJobs(
     refRootWebsiteID,
     rootWebsiteURL
 ) {
-    webpagesURLsForUpload.map(async (url) => {
+    webpagesURLsForUpload.forEach(async (url) => {
         await myQueue.add("upload--process-webpages", {
             url,
             refRootWebsiteID,
         });
     });
 
-    webpagesURLsForUpdate.map(async ({ url, webpageRefID }) => {
+    webpagesURLsForUpdate.forEach(async ({ url, webpageRefID }) => {
         await myQueue.add("update--process-webpages", {
             url,
             webpageRefID,
@@ -120,17 +120,17 @@ app.post("/take_screenshots", async (req, res) => {
                 url: rootURLorFalse,
             });
 
-            const ITERATIONS_POSSIBLE = 6;
+            const ITERATIONS_POSSIBLE = 10;
             const INTERVAL_DURATION = 3000;
             let counter = 0;
             const limitedInterval = setInterval(async () => {
-                console.log("Step %d in trying to fetch ID.", counter);
+                // console.log("Step %d in trying to fetch ID.", counter);
                 rootIDorFalse = await rootExistsInDBIfYesGetID(
                     webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload[0]
                 );
-                if (counter > ITERATIONS_POSSIBLE || rootIDorFalse) {
+                if (counter >= ITERATIONS_POSSIBLE || rootIDorFalse) {
                     if (rootIDorFalse) {
-                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload.map(
+                        webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload.forEach(
                             async (url) => {
                                 await myQueue.add("upload--process-webpages", {
                                     url,
@@ -138,6 +138,8 @@ app.post("/take_screenshots", async (req, res) => {
                                 });
                             }
                         );
+                    } else {
+                        // send error to all awaiting URLs
                     }
                     clearInterval(limitedInterval);
                 }

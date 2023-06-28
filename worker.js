@@ -29,19 +29,12 @@ const workerHandler = async (job) => {
 
     let timeAtStart = Date.now();
 
-    console.log("In worker");
-    console.log("Worker called for: ", job.name);
-
     switch (job.name) {
         case "upload--process-root-website":
         // await incrementLocalIDcounter();
         case "update--process-root-website":
             if (!job.data.url) return; // because there is a scenario where root-website is in db but we didnt select it for updating
             URLmetaObject = prepareURL(job.data.url);
-            console.log("we returned with", URLmetaObject);
-            console.log(
-                `We are prepared to update: ${job.data.url} with ref of ${job.data.refRootWebsiteID}`
-            );
             await processURL(
                 devicesAndBrowsers,
                 URLmetaObject,
@@ -93,13 +86,7 @@ async function processURL(
 ) {
     return Promise.all(
         devicesAndBrowsers.map((obj) => {
-            return takeScreenshot(
-                obj.browser,
-                obj.device,
-                URLmetaObject,
-                url,
-                job
-            );
+            return takeScreenshot(obj.browser, obj.device, URLmetaObject, url);
         })
     )
         .then(async () => {
@@ -126,8 +113,7 @@ async function takeScreenshot(
     browser,
     device,
     { plainRootURL, URLSubpath },
-    url,
-    job
+    url
 ) {
     console.log(`~~~~~~~~~~~Processing: ${url} | ${browser} | ${device}`);
     let browserPW = await (browser === "chromium"
@@ -152,8 +138,9 @@ async function takeScreenshot(
         let page = await context.newPage();
         await page.goto(url);
         await page.screenshot({
-            path: `app/projects/${plainRootURL}/screenshots/${URLSubpath}_-_${browser}_-_${device}_-_frontpage.png`,
+            path: `app/projects/${plainRootURL}/screenshots/${URLSubpath}_-_${browser}_-_${device}_-_frontpage.jpg`,
             fullPage: false,
+            type: "jpeg",
         });
     }
 
@@ -163,7 +150,8 @@ async function takeScreenshot(
     let page = await context.newPage();
     await page.goto(url);
     await page.screenshot({
-        path: `app/projects/${plainRootURL}/screenshots/${URLSubpath}_-_${browser}_-_${device}.png`,
+        path: `app/projects/${plainRootURL}/screenshots/${URLSubpath}_-_${browser}_-_${device}.jpg`,
         fullPage: true,
+        type: "jpeg",
     });
 }
