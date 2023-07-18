@@ -148,6 +148,13 @@ app.post("/take_screenshots", async (req, res) => {
             res.status(200);
         } else {
             SOCKET.emit("no_root", "no_root");
+            for (let i = 0; i < URLarray.length; i++) {
+                const urlEl = URLarray[i];
+                SOCKET.emit("error_in_processing", { url: urlEl, error: true });
+                URLS_IN_PROCESSING = [
+                    ...URLS_IN_PROCESSING.filter((url) => url !== urlEl),
+                ];
+            }
             res.status(406);
         }
     } catch {
@@ -166,7 +173,8 @@ server.listen(PORT, () =>
 
 function isRootIncludedInArray(URLarray) {
     const resultArray = URLarray.map((URL) => {
-        return URL.slice(URL.lastIndexOf("/") + 1, URL.length) === "";
+        // return URL.slice(URL.lastIndexOf("/") + 1, URL.length) === "";
+        return countNumOfCharsInString(URL, "/") === 2;
     });
     const rootURL = URLarray[resultArray.indexOf(true)];
     if (resultArray.includes(true)) return rootURL;
@@ -238,4 +246,8 @@ function checkIdempotence(URLarray) {
         URLS_IN_PROCESSING = [...URLS_IN_PROCESSING, ...tempURLarray];
         return [...tempURLarray];
     }
+}
+
+function countNumOfCharsInString(str, char) {
+    return str.split(char).length - 1;
 }
