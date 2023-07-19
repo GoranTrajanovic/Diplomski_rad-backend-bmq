@@ -11,20 +11,12 @@
     "author": "",
     "license": "ISC",
     "dependencies": {
-        "@apollo/client": "^3.7.12",
-        "@apollo/server": "^4.7.1",
-        "async": "^3.2.4",
         "axios": "^1.4.0",
         "bullmq": "^3.13.4",
         "express": "^4.18.2",
-        "fetch-blob": "^2",
-        "formdata-node": "^5.0.0",
-        "graphql": "^16.6.0",
-        "graphql-request": "^6.0.0",
         "node-fetch": "^3.3.1",
         "nodemon": "^2.0.22",
         "playwright": "^1.30.0",
-        "socket.io": "^4.6.1",
-        "ws": "^8.13.0"
+        "socket.io": "^4.6.1"
     }
 }
