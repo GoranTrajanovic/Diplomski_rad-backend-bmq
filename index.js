@@ -57,12 +57,14 @@ async function addSimultaneousJobs(
     webpagesURLsForUpload,
     webpagesURLsForUpdate,
     refRootWebsiteID,
-    rootWebsiteURL
+    rootWebsiteURL,
+    authorsIDs
 ) {
     webpagesURLsForUpload.forEach(async (url) => {
         await myQueue.add("upload--process-webpages", {
             url,
             refRootWebsiteID,
+            authorsIDs,
         });
     });
 
@@ -70,17 +72,20 @@ async function addSimultaneousJobs(
         await myQueue.add("update--process-webpages", {
             url,
             webpageRefID,
+            authorsIDs,
         });
     });
     await myQueue.add("update--process-root-website", {
         url: rootWebsiteURL,
         refRootWebsiteID,
+        authorsIDs,
     });
 }
 
 app.post("/take_screenshots", async (req, res) => {
     // let URLarray = req.body.urlArray;
     let URLarray = checkIdempotence(req.body.urlArray);
+    const authorsIDs = req.body.authorsIDs;
 
     if (URLarray.length) clearScreenshotsWorkingDir(getRootURL(URLarray[0]));
     else return;
@@ -112,12 +117,14 @@ app.post("/take_screenshots", async (req, res) => {
                 webpagesURLsSeparated.URLsAndRefsForWebpagesToUpload,
                 webpagesURLsSeparated.URLsAndRefsForWebpagesToUpdate,
                 rootIDorFalse,
-                rootURLorFalse
+                rootURLorFalse,
+                authorsIDs
             );
             res.status(200);
         } else if (rootURLorFalse) {
             await myQueue.add("upload--process-root-website", {
                 url: rootURLorFalse,
+                authorsIDs,
             });
 
             const ITERATIONS_POSSIBLE = 10;
@@ -135,6 +142,7 @@ app.post("/take_screenshots", async (req, res) => {
                                 await myQueue.add("upload--process-webpages", {
                                     url,
                                     refRootWebsiteID: rootIDorFalse,
+                                    authorsIDs,
                                 });
                             }
                         );

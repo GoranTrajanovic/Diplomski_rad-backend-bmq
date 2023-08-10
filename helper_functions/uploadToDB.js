@@ -8,7 +8,8 @@ export default async function (
     refID,
     job,
     GLOBAL_STEPS,
-    timeAtStart
+    timeAtStart,
+    authorsIDs
 ) {
     const metaObject = getNamesOfAllMatchingImages(plainRootURL, URL);
 
@@ -20,7 +21,8 @@ export default async function (
                 metaObject,
                 job,
                 GLOBAL_STEPS,
-                timeAtStart
+                timeAtStart,
+                authorsIDs
             );
             break;
         case "update--process-root-website":
@@ -86,7 +88,8 @@ async function uploadRootWebsiteToDB(
     { plainURL, parentDirFiles, pathToImagesFolder },
     job,
     GLOBAL_STEPS,
-    timeAtStart
+    timeAtStart,
+    authorsIDs
 ) {
     const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.jpg`;
 
@@ -96,6 +99,7 @@ async function uploadRootWebsiteToDB(
         Root_URL: plainURL,
         Web_Vitals_Score: "Hard-coded",
         slug: plainURL.replaceAll(".", "-"),
+        website_authors: authorsIDs,
     };
 
     let res = await axios

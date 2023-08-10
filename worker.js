@@ -41,7 +41,8 @@ const workerHandler = async (job) => {
                 job.data.url,
                 job,
                 job.data.refRootWebsiteID,
-                timeAtStart
+                timeAtStart,
+                job.data.authorsIDs
             ).catch((e) => {
                 printShort(e);
             });
@@ -55,7 +56,8 @@ const workerHandler = async (job) => {
                 job.data.url,
                 job,
                 job.data.refRootWebsiteID || job.data.webpageRefID,
-                timeAtStart
+                timeAtStart,
+                job.data.authorsIDs
             ).catch((e) => {
                 printShort(e);
             });
@@ -82,7 +84,8 @@ async function processURL(
     url,
     job,
     refID,
-    timeAtStart
+    timeAtStart,
+    authorsIDs
 ) {
     return Promise.all(
         devicesAndBrowsers.map((obj) => {
@@ -96,7 +99,8 @@ async function processURL(
                 refID,
                 job,
                 GLOBAL_STEPS,
-                timeAtStart
+                timeAtStart,
+                authorsIDs
             );
         })
         .catch(async (e) => {
