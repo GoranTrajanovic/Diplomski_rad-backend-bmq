@@ -95,6 +95,10 @@ async function uploadRootWebsiteToDB(
 
     let refID;
 
+    // this f is needed because if website_author entity has a relation, Stripe will not
+    // rewrite the existing relation and make another
+    await clearWebsiteAuthorsRelations(authorsIDs);
+
     const data = {
         Root_URL: plainURL,
         Web_Vitals_Score: "Hard-coded",
@@ -372,4 +376,18 @@ async function updateWebpageInDB(
                 error: true,
             });
         });
+}
+
+async function clearWebsiteAuthorsRelations(authorsIDs) {
+    let data = { website: null };
+    return Promise.all([
+        authorsIDs.map(async (authorID) => {
+            await axios.put(
+                `http://127.0.0.1:1337/api/website_author/${authorID}`,
+                {
+                    data,
+                }
+            );
+        }),
+    ]);
 }
