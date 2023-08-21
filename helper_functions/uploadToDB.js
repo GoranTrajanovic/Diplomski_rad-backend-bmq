@@ -9,9 +9,14 @@ export default async function (
     job,
     GLOBAL_STEPS,
     timeAtStart,
-    authorsIDs
+    authorsIDs,
+    webpageRefID = null
 ) {
     const metaObject = getNamesOfAllMatchingImages(plainRootURL, URL);
+
+    // this f is needed because if website_author entity has a relation, Stripe will not
+    // rewrite the existing relation and make another
+    await clearWebsiteAuthorsRelations(authorsIDs);
 
     switch (job.name) {
         case "upload--process-root-website":
@@ -52,7 +57,8 @@ export default async function (
                 refID,
                 job,
                 GLOBAL_STEPS,
-                timeAtStart
+                timeAtStart,
+                webpageRefID
             );
             break;
         default:
@@ -94,10 +100,6 @@ async function uploadRootWebsiteToDB(
     const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.jpg`;
 
     let refID;
-
-    // this f is needed because if website_author entity has a relation, Stripe will not
-    // rewrite the existing relation and make another
-    await clearWebsiteAuthorsRelations(authorsIDs);
 
     const data = {
         Root_URL: plainURL,
@@ -182,7 +184,8 @@ async function updateRootWebsiteInDB(
     refID,
     job,
     GLOBAL_STEPS,
-    timeAtStart
+    timeAtStart,
+    authorsIDs
 ) {
     // const coverImageURI = `${pathToImagesFolder}/${parentDirFiles[0]}`;
     const coverImageURI = `${pathToImagesFolder}/root_-_chromium_-_desktop_-_frontpage.jpg`;
@@ -190,6 +193,7 @@ async function updateRootWebsiteInDB(
     const data = {
         Web_Vitals_Score: "Hard-coded-changed",
         Screenshots: null, // clearing all old Screenshots
+        website_authors: authorsIDs,
     };
 
     let res = await axios
@@ -265,7 +269,8 @@ async function uploadWebpageToDB(
     WebsiteIDforReference,
     job,
     GLOBAL_STEPS,
-    timeAtStart
+    timeAtStart,
+    authorsIDs
 ) {
     const data = {
         URL: plainURL,
@@ -278,6 +283,8 @@ async function uploadWebpageToDB(
         })
         .then(async (res) => {
             const refID = res.data.data.id;
+
+            await updateWebsiteAuthors(authorsIDs, WebsiteIDforReference);
 
             Promise.all(
                 await parentDirFiles.map(async (imgName) => {
@@ -326,14 +333,18 @@ async function updateWebpageInDB(
     refID,
     job,
     GLOBAL_STEPS,
-    timeAtStart
+    timeAtStart,
+    authorsIDs,
+    webpageRefID
 ) {
     const data = {
         Screenshots: null, // clearing all old Screenshots
     };
 
+    await updateWebsiteAuthors(authorsIDs, refID);
+
     let res = await axios
-        .put(`http://127.0.0.1:1337/api/webpages/${refID}`, {
+        .put(`http://127.0.0.1:1337/api/webpages/${webpageRefID}`, {
             data,
         })
         .then(async () => {
@@ -345,7 +356,7 @@ async function updateWebpageInDB(
                         "image/jpg"
                     );
                     form.append("files", imgBlob, imgName);
-                    form.append("refId", refID);
+                    form.append("webpageRefID", webpageRefID);
                     form.append("ref", "api::webpage.webpage");
                     form.append("field", "Screenshots");
                     await fetch("http://127.0.0.1:1337/api/upload", {
@@ -383,11 +394,20 @@ async function clearWebsiteAuthorsRelations(authorsIDs) {
     return Promise.all([
         authorsIDs.map(async (authorID) => {
             await axios.put(
-                `http://127.0.0.1:1337/api/website_author/${authorID}`,
+                `http://127.0.0.1:1337/api/website_authors/${authorID}`,
                 {
                     data,
                 }
             );
         }),
     ]);
+}
+
+async function updateWebsiteAuthors(authorsIDs, refID) {
+    const data = {
+        website_authors: authorsIDs,
+    };
+    await axios.put(`http://127.0.0.1:1337/api/websites/${refID}`, {
+        data,
+    });
 }

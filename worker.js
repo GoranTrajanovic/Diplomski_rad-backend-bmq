@@ -55,9 +55,10 @@ const workerHandler = async (job) => {
                 URLmetaObject,
                 job.data.url,
                 job,
-                job.data.refRootWebsiteID || job.data.webpageRefID,
+                job.data.refRootWebsiteID,
                 timeAtStart,
-                job.data.authorsIDs
+                job.data.authorsIDs,
+                job.data.webpageRefID
             ).catch((e) => {
                 printShort(e);
             });
@@ -85,7 +86,8 @@ async function processURL(
     job,
     refID,
     timeAtStart,
-    authorsIDs
+    authorsIDs,
+    webpageRefID
 ) {
     return Promise.all(
         devicesAndBrowsers.map((obj) => {
@@ -100,7 +102,8 @@ async function processURL(
                 job,
                 GLOBAL_STEPS,
                 timeAtStart,
-                authorsIDs
+                authorsIDs,
+                webpageRefID
             );
         })
         .catch(async (e) => {

@@ -1,13 +1,14 @@
 import { Queue, QueueEvents } from "bullmq";
+import http from "http";
 import express from "express";
 import axios from "axios";
-const app = express();
-import http from "http";
-const server = http.createServer(app);
 import { Server } from "socket.io";
 import printShort from "./helper_functions/printShort.js";
 import getRootURL from "./helper_functions/getRootURL.js";
 import clearScreenshotsWorkingDir from "./helper_functions/clearScreenshotsWorkingDir.js";
+
+const app = express();
+const server = http.createServer(app);
 
 const io = new Server(server);
 let SOCKET;
@@ -72,6 +73,7 @@ async function addSimultaneousJobs(
         await myQueue.add("update--process-webpages", {
             url,
             webpageRefID,
+            refRootWebsiteID,
             authorsIDs,
         });
     });
